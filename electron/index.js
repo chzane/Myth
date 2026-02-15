@@ -47,4 +47,19 @@ app.whenReady().then(() => {
       return filePaths[0]
     }
   })
+
+  ipcMain.handle('dialog:openDirectory', async () => {
+    const { canceled, filePaths } = await dialog.showOpenDialog({
+      properties: ['openDirectory']
+    })
+    if (canceled) {
+      return null
+    } else {
+      return filePaths[0]
+    }
+  })
+
+  ipcMain.handle('get-user-data-path', () => {
+    return app.getPath('userData')
+  })
 })
