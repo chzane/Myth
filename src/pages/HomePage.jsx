@@ -35,7 +35,7 @@ const HomePage = () => {
     const chapters = currentBookData?.chapters || [];
     const inspirations = currentBookData?.inspirations || [];
     const settings = currentBookData?.settings || {};
-    
+
     const worldViews = settings.worldViews || [];
     const stories = settings.stories || [];
     const characters = settings.characters || [];
@@ -104,7 +104,7 @@ const HomePage = () => {
                                     return (<><RiMoonClearFill />晚上好</>);
                                 })()}, {(process.env.USERNAME || process.env.USER || 'User').charAt(0).toUpperCase() + (process.env.USERNAME || process.env.USER || 'User').slice(1)}
                             </h1>
-                            <p className="mt-2 text-md text-gray-200"><Yiyan />&nbsp;</p>
+                            <div className="mt-2 text-md text-gray-200"><Yiyan />&nbsp;</div>
                         </div>
 
                         {/* Book Switcher Button */}
@@ -124,7 +124,7 @@ const HomePage = () => {
                 {!currentBook ? (
                     <div className="text-center py-20 bg-gray-50 rounded-[16px]">
                         <h2 className="text-xl font-bold mb-4">还没有打开书本</h2>
-                        <button 
+                        <button
                             onClick={() => setIsSwitcherOpen(true)}
                             className="px-6 py-2 bg-black text-white rounded-[16px] hover:bg-gray-800"
                         >

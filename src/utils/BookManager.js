@@ -117,6 +117,9 @@ class BookManager {
             fs.writeFileSync(path.join(bookDir, 'inspirations.json'), JSON.stringify([], null, 2));
             fs.writeFileSync(path.join(bookDir, 'settings.json'), JSON.stringify({}, null, 2));
             
+            // Create chapters directory for content files
+            fs.mkdirSync(path.join(bookDir, 'chapters'), { recursive: true });
+            
             // Add to global config
             const books = await this.getBooks();
             // Need to update the book object in the list with the correct cover path
@@ -177,6 +180,36 @@ class BookManager {
         return await ipcRenderer.invoke('dialog:openFile', {
             filters: [{ name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'gif', 'webp'] }]
         });
+    }
+
+    async saveChapterContent(bookPath, chapterId, content) {
+        try {
+            const chaptersDir = path.join(bookPath, 'chapters');
+            if (!fs.existsSync(chaptersDir)) {
+                fs.mkdirSync(chaptersDir, { recursive: true });
+            }
+            const filePath = path.join(chaptersDir, `${chapterId}.json`);
+            // Save minified JSON to save space
+            fs.writeFileSync(filePath, JSON.stringify(content));
+            return true;
+        } catch (error) {
+            console.error('Error saving chapter content:', error);
+            return false;
+        }
+    }
+
+    async loadChapterContent(bookPath, chapterId) {
+        try {
+            const filePath = path.join(bookPath, 'chapters', `${chapterId}.json`);
+            if (fs.existsSync(filePath)) {
+                const data = fs.readFileSync(filePath, 'utf-8');
+                return JSON.parse(data);
+            }
+            return null;
+        } catch (error) {
+            console.error('Error loading chapter content:', error);
+            return null;
+        }
     }
 }
 

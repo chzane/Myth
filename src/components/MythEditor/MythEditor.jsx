@@ -6,7 +6,7 @@ import {
     defaultBlockSpecs,
     BlockNoteSchema
 } from "@blocknote/core";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useState, useEffect } from "react";
 import {
     useCreateBlockNote,
     SuggestionMenuController,
@@ -21,7 +21,7 @@ import * as locales from "@blocknote/core/locales";
 
 import "./MythEditor.css";
 
-function MythEditor({ lang = "zh" }) {
+function MythEditor({ lang = "zh", initialContent, onChange, onEditorReady }) {
     const alertLabels = useMemo(() => {
         const isZh = typeof lang === "string" && lang.toLowerCase().startsWith("zh");
         if (isZh) {
@@ -70,18 +70,21 @@ function MythEditor({ lang = "zh" }) {
             schema,
             dictionary: locales[lang] || locales.en,
             tabBehavior: "prefer-indent",
-            initialContent: [
+            initialContent: initialContent || [
                 {
                     type: "paragraph",
-                    content: "Hello world!",
-                },
-                {
-                    type: "paragraph",
+                    content: "开始写作...",
                 },
             ],
         },
         [schema, lang]
     );
+
+    useEffect(() => {
+        if (onEditorReady && editor) {
+            onEditorReady(editor);
+        }
+    }, [editor, onEditorReady]);
 
     const [isSlashSearching, setIsSlashSearching] = useState(false);
 
@@ -136,7 +139,12 @@ function MythEditor({ lang = "zh" }) {
             slashMenu={false}
             data-theming-css-variables-demo
             className={isSlashSearching ? "bn-slash-searching" : undefined}
-            onChange={updateSlashSearchState}
+            onChange={() => {
+                updateSlashSearchState(editor);
+                if (onChange) {
+                    onChange(editor.document);
+                }
+            }}
             onSelectionChange={() => updateSlashSearchState(editor)}
         >
             <SuggestionMenuController
