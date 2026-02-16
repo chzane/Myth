@@ -157,7 +157,7 @@ const HomePage = () => {
                                 <h3 className="text-md font-bold mb-4 flex items-center gap-2">
                                     Todo
                                 </h3>
-                                <div className="flex-1 overflow-y-auto space-y-0 pr-2 custom-scrollbar min-h-[200px]">
+                                <div className="flex-1 overflow-y-auto space-y-0 pr-2 custom-scrollbar min-h-[200px] max-h-[300px]">
                                     {todos.length === 0 && <p className="text-gray-400 text-sm text-center py-4">暂无待办事项</p>}
                                     {todos.map(todo => (
                                         <div
@@ -206,7 +206,7 @@ const HomePage = () => {
                                 <h3 className="text-md font-bold mb-4 flex items-center gap-2">
                                     正文
                                 </h3>
-                                <div className="flex-1 overflow-y-auto space-y-2 pr-2 custom-scrollbar min-h-[200px]">
+                                <div className="flex-1 overflow-y-auto space-y-2 pr-2 custom-scrollbar min-h-[200px] max-h-[300px]">
                                     {chapters.length === 0 && <p className="text-gray-400 text-sm text-center py-4">暂无章节</p>}
                                     {chapters.map(chapter => (
                                         <div

@@ -1,2 +1,6 @@
 @import "tailwindcss";
 
+* {
+    scrollbar-width: thin;
+    scrollbar-color: var(--bn-colors-hovered-background) transparent;
+}

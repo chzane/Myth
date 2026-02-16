@@ -8,6 +8,8 @@ import {
 import { useNavigate } from 'react-router-dom';
 import MythEditor from '../components/MythEditor/MythEditor.jsx';
 import ChapterList from '../components/Editor/ChapterList.jsx';
+import WordCountBar from '../components/Editor/WordCountBar.jsx';
+import RightSidebar from '../components/Editor/RightSidebar.jsx';
 import { useBook } from '../contexts/BookContext';
 import BookManager from '../utils/BookManager';
 import Modal from '../components/UI/Modal';
@@ -29,6 +31,8 @@ function EditorPage() {
     const [showOutline, setShowOutline] = useState(true);
     const [focusMode, setFocusMode] = useState(false);
     const [darkMode, setDarkMode] = useState(false);
+    const [spellCheckEnabled, setSpellCheckEnabled] = useState(false);
+    const [chapterSpellErrors, setChapterSpellErrors] = useState({}); // { [chapterId]: Error[] }
     const [contextMenu, setContextMenu] = useState(null);
     const [clipboard, setClipboard] = useState(null); // { id: string, action: 'cut' }
 
@@ -41,6 +45,55 @@ function EditorPage() {
     // Sidebar State
     const [leftSidebarVisible, setLeftSidebarVisible] = useState(true);
     const [rightSidebarVisible, setRightSidebarVisible] = useState(true);
+    const [leftSidebarWidth, setLeftSidebarWidth] = useState(256);
+    const [rightSidebarWidth, setRightSidebarWidth] = useState(256);
+    const [isResizingLeft, setIsResizingLeft] = useState(false);
+    const [isResizingRight, setIsResizingRight] = useState(false);
+    
+    // Multi-select State
+    const [selectedIds, setSelectedIds] = useState(new Set());
+
+    // Sidebar Resizing Effect
+    useEffect(() => {
+        const handleMouseMove = (e) => {
+            if (isResizingLeft) {
+                const newWidth = Math.min(Math.max(e.clientX, 200), 500);
+                setLeftSidebarWidth(newWidth);
+            }
+            if (isResizingRight) {
+                const newWidth = Math.min(Math.max(window.innerWidth - e.clientX, 200), 500);
+                setRightSidebarWidth(newWidth);
+            }
+        };
+
+        const handleMouseUp = () => {
+            setIsResizingLeft(false);
+            setIsResizingRight(false);
+            document.body.style.cursor = 'default';
+            // Disable text selection during resize
+            document.body.style.userSelect = 'auto';
+        };
+
+        if (isResizingLeft || isResizingRight) {
+            window.addEventListener('mousemove', handleMouseMove);
+            window.addEventListener('mouseup', handleMouseUp);
+            document.body.style.cursor = 'col-resize';
+            document.body.style.userSelect = 'none';
+        }
+
+        return () => {
+            window.removeEventListener('mousemove', handleMouseMove);
+            window.removeEventListener('mouseup', handleMouseUp);
+            document.body.style.cursor = 'default';
+            document.body.style.userSelect = 'auto';
+        };
+    }, [isResizingLeft, isResizingRight]);
+
+    // Refs for stable callbacks
+    const chaptersRef = useRef(chapters);
+    useEffect(() => {
+        chaptersRef.current = chapters;
+    }, [chapters]);
 
     useEffect(() => {
         if (focusMode) {
@@ -51,6 +104,12 @@ function EditorPage() {
             setRightSidebarVisible(showOutline);
         }
     }, [focusMode, showSidebar, showOutline]);
+
+    useEffect(() => {
+        if (spellCheckEnabled && !focusMode) {
+            setRightSidebarVisible(true);
+        }
+    }, [spellCheckEnabled, focusMode]);
     const [lastSaved, setLastSaved] = useState(null);
     const editorRefs = useRef({});
     const saveTimeoutRef = useRef(null);
@@ -155,75 +214,78 @@ function EditorPage() {
         return path;
     }, [chapters, currentChapterId]);
 
-    const handleSelectChapter = useCallback(async (chapterId) => {
-        // If selecting a folder, just toggle it (handled in ChapterList)
-        // Here we assume chapterId is a file
-        
-        // Check if folder logic moved to handleToggleExpand
-        // But if called directly, we might need to check
-        // We can't easily check item type here without traversing, but we can assume caller knows.
-        // Actually, findChapter is available.
-        
-        // NOTE: We cannot use 'chapters' state directly in useCallback if we want it to be stable
-        // UNLESS we add it to deps. But 'chapters' changes often.
-        // However, handleSelectChapter is called often.
-        // Let's rely on the fact that we find the item.
-        
-        // Actually, to make this stable, we shouldn't depend on chapters if possible, 
-        // or accept that it changes when chapters change.
-        // But for keyboard nav, we need it to be up to date.
-        
-        // Optimizing: 
-        // If chapterId is same as current, do nothing.
-        // But we need to check if it's already loaded.
-        
-        setCurrentChapterId(prev => {
-            if (prev === chapterId) return prev;
-            return chapterId;
-        });
+    // Keyboard Navigation Helpers
+    const flattenVisibleItems = useCallback((items, expandedIds) => {
+        const result = [];
+        const traverse = (nodes) => {
+            for (const node of nodes) {
+                result.push(node);
+                if (node.type === 'folder' && expandedIds.includes(node.id) && node.children) {
+                    traverse(node.children);
+                }
+            }
+        };
+        traverse(items);
+        return result;
+    }, []);
 
-        setOpenChapters(prev => {
-            if (prev.has(chapterId)) return prev;
-            return new Set(prev).add(chapterId);
-        });
+    const handleSelectChapter = useCallback(async (chapterId, event) => {
+        // Multi-select Logic
+        if (event && (event.shiftKey || event.metaKey || event.ctrlKey)) {
+            const visibleItems = flattenVisibleItems(chapters, expandedChapters);
+            let newSelection = new Set(selectedIds);
 
-        // We need to check if content is loaded.
-        // We can't access state inside setter easily for async logic.
-        // So we just run the logic.
-        // If we want to avoid stale closures, we can use refs for heavy state if needed,
-        // but here it's fine to re-create function when chapters change.
-        
-        // But wait, if we re-create this function, Child components might re-render.
-        // ChapterList depends on it.
-        
-        // Let's check loadedContents
-        // We can use a ref for loadedContents to avoid dependency?
-        // Or just let it re-create. React.memo on ChapterList will check if function reference changed.
-        // If we use useCallback with [chapters], it changes when chapters change.
-        // This is acceptable as ChapterList needs to re-render when chapters change anyway.
-        
-        // Check if content loaded
-        // We can't check 'loadedContents' here without adding it to deps.
-        // If we add it to deps, this function changes when ANY chapter loads.
-        // That's bad.
-        
-        // Solution: Use functional updates or Refs.
-        // But for async loading, we need the value.
-        // Let's assume we trigger load, and if it's already there, we just overwrite (cache hit is fast).
-        // BookManager.loadChapterContent reads from disk. We want to avoid that if possible.
-        // We can use a Ref to track loaded IDs?
-        
-        // For now, let's keep it simple. Optimization:
-        
+            if (event.shiftKey && currentChapterId) {
+                // Range select
+                const startIdx = visibleItems.findIndex(i => i.id === currentChapterId);
+                const endIdx = visibleItems.findIndex(i => i.id === chapterId);
+                
+                if (startIdx !== -1 && endIdx !== -1) {
+                    const min = Math.min(startIdx, endIdx);
+                    const max = Math.max(startIdx, endIdx);
+                    
+                    // If not holding Ctrl/Cmd, clear previous selection first
+                    if (!event.metaKey && !event.ctrlKey) {
+                        newSelection = new Set();
+                    }
+                    
+                    for (let i = min; i <= max; i++) {
+                        newSelection.add(visibleItems[i].id);
+                    }
+                }
+            } else if (event.metaKey || event.ctrlKey) {
+                // Toggle
+                if (newSelection.has(chapterId)) {
+                    newSelection.delete(chapterId);
+                } else {
+                    newSelection.add(chapterId);
+                }
+            }
+            
+            setSelectedIds(newSelection);
+            setCurrentChapterId(chapterId);
+        } else {
+            // Single select
+            setSelectedIds(new Set([chapterId]));
+            setCurrentChapterId(prev => {
+                if (prev === chapterId) return prev;
+                return chapterId;
+            });
+            setOpenChapters(prev => {
+                if (prev.has(chapterId)) return prev;
+                return new Set(prev).add(chapterId);
+            });
+        }
+
+        // Load content for the focused item
         const content = await BookManager.loadChapterContent(currentBook.path, chapterId);
         if (content) {
             setLoadedContents(prev => ({ ...prev, [chapterId]: content }));
-            // We can also extract outline here
             const newOutline = extractOutline(content);
             setOutline(newOutline);
         }
         
-    }, [currentBook?.path, extractOutline]);
+    }, [currentBook?.path, extractOutline, chapters, expandedChapters, currentChapterId, selectedIds, flattenVisibleItems]);
 
     const handleCreateChapter = useCallback(async (parentId = null) => {
         const newChapter = {
@@ -324,10 +386,16 @@ function EditorPage() {
     }, [chapters, saveBookData]);
 
     const handleDelete = useCallback(async (itemId) => {
-        if (!window.confirm('确定要删除吗？此操作不可恢复。')) return;
+        const idsToDelete = (selectedIds.has(itemId)) 
+            ? Array.from(selectedIds) 
+            : [itemId];
+
+        if (!window.confirm(`确定要删除这 ${idsToDelete.length} 项吗？此操作不可恢复。`)) return;
+
+        const idsSet = new Set(idsToDelete);
 
         const deleteNode = (items) => {
-            return items.filter(item => item.id !== itemId).map(item => ({
+            return items.filter(item => !idsSet.has(item.id)).map(item => ({
                 ...item,
                 children: item.children ? deleteNode(item.children) : []
             }));
@@ -337,11 +405,17 @@ function EditorPage() {
         setChapters(updatedChapters);
         await saveBookData('chapters', updatedChapters);
 
-        if (itemId === currentChapterId) {
+        if (idsSet.has(currentChapterId)) {
             setCurrentChapterId(null);
             setOutline([]);
         }
-    }, [chapters, currentChapterId, saveBookData]);
+        
+        setSelectedIds(prev => {
+            const newSet = new Set(prev);
+            idsToDelete.forEach(id => newSet.delete(id));
+            return newSet;
+        });
+    }, [chapters, currentChapterId, saveBookData, selectedIds]);
 
     const handleRename = useCallback(async (itemId, newName) => {
         const updateNode = (items) => {
@@ -355,31 +429,16 @@ function EditorPage() {
                 return item;
             });
         };
-        const updatedChapters = updateNode(chapters);
+        const updatedChapters = updateNode(chaptersRef.current);
         setChapters(updatedChapters);
         await saveBookData('chapters', updatedChapters);
-    }, [chapters, saveBookData]);
+    }, [saveBookData]);
 
     // Handle Expand Toggle
     const handleToggleExpand = useCallback((id) => {
         setExpandedChapters(prev => 
             prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
         );
-    }, []);
-
-    // Keyboard Navigation Helpers
-    const flattenVisibleItems = useCallback((items, expandedIds) => {
-        const result = [];
-        const traverse = (nodes) => {
-            for (const node of nodes) {
-                result.push(node);
-                if (node.type === 'folder' && expandedIds.includes(node.id) && node.children) {
-                    traverse(node.children);
-                }
-            }
-        };
-        traverse(items);
-        return result;
     }, []);
 
     // Keyboard Navigation Effect
@@ -425,7 +484,7 @@ function EditorPage() {
                 } else {
                     if (currentIndex < visibleItems.length - 1) {
                         const next = visibleItems[currentIndex + 1];
-                         if (next.type === 'folder') {
+                        if (next.type === 'folder') {
                              // Skip folders
                             let i = currentIndex + 1;
                             while (i < visibleItems.length && visibleItems[i].type === 'folder') {
@@ -460,13 +519,20 @@ function EditorPage() {
     const handleContextMenu = useCallback((e, item) => {
         e.preventDefault();
         e.stopPropagation();
+
+        if (item && !selectedIds.has(item.id)) {
+            // Right clicked on unselected item -> select it
+            setSelectedIds(new Set([item.id]));
+            setCurrentChapterId(item.id);
+        }
+
         setContextMenu({
             visible: true,
             x: e.clientX,
             y: e.clientY,
             item
         });
-    }, []);
+    }, [selectedIds]);
 
     const handleCut = useCallback((itemId) => {
         setClipboard({ id: itemId, action: 'cut' });
@@ -522,6 +588,79 @@ function EditorPage() {
         setContextMenu(null);
     }, [clipboard, chapters, saveBookData]);
 
+    // Stats Helper
+    const handleStatsUpdate = useCallback((chapterId, stats) => {
+        const updateNode = (items) => {
+            return items.map(item => {
+                if (item.id === chapterId) {
+                    return { ...item, stats };
+                }
+                if (item.children) {
+                    const children = updateNode(item.children);
+                    // Check if children actually changed
+                    if (JSON.stringify(children) !== JSON.stringify(item.children)) {
+                        return { ...item, children };
+                    }
+                }
+                return item;
+            });
+        };
+
+        setChapters(prev => {
+            const updated = updateNode(prev);
+            // Avoid state update if nothing changed
+            if (JSON.stringify(updated) === JSON.stringify(prev)) return prev;
+            return updated;
+        });
+        
+    }, []);
+
+    // Effect to save chapters when stats change?
+    // Let's use a ref to track if we need to save.
+    const chaptersSaveTimeoutRef = useRef(null);
+    useEffect(() => {
+        if (chaptersSaveTimeoutRef.current) clearTimeout(chaptersSaveTimeoutRef.current);
+        chaptersSaveTimeoutRef.current = setTimeout(() => {
+            if (chapters.length > 0) {
+                 saveBookData('chapters', chapters);
+            }
+        }, 2000);
+        return () => clearTimeout(chaptersSaveTimeoutRef.current);
+    }, [chapters, saveBookData]);
+
+    const calculateTotalStats = useCallback(() => {
+        let total = { chinese: 0, english: 0, special: 0, total: 0 };
+        const traverse = (items) => {
+            for (const item of items) {
+                if (item.stats) {
+                    total.chinese += item.stats.chinese || 0;
+                    total.english += item.stats.english || 0;
+                    total.special += item.stats.special || 0;
+                    total.total += item.stats.total || 0;
+                }
+                if (item.children) traverse(item.children);
+            }
+        };
+        traverse(chapters);
+        return total;
+    }, [chapters]);
+
+    const currentStats = useMemo(() => {
+        const find = (items) => {
+            for (const item of items) {
+                if (item.id === currentChapterId) return item.stats || { chinese: 0, english: 0, special: 0, total: 0 };
+                if (item.children && item.children.length > 0) {
+                    const found = find(item.children);
+                    if (found) return found;
+                }
+            }
+            return null;
+        };
+        return find(chapters) || { chinese: 0, english: 0, special: 0, total: 0 };
+    }, [chapters, currentChapterId]);
+
+    const totalStats = useMemo(() => calculateTotalStats(), [calculateTotalStats]);
+
     const handleJumpToHeading = useCallback((blockId) => {
         const editor = editorRefs.current[currentChapterId];
         if (editor) {
@@ -533,6 +672,29 @@ function EditorPage() {
             }
         }
     }, [currentChapterId]);
+
+    const handleJumpToError = useCallback((error) => {
+        const editor = editorRefs.current[currentChapterId];
+        if (editor && editor._tiptapEditor) {
+            const tiptap = editor._tiptapEditor;
+            tiptap.commands.setTextSelection({ from: error.from, to: error.to });
+            tiptap.commands.scrollIntoView();
+            tiptap.view.focus();
+        }
+    }, [currentChapterId]);
+
+    // Spell errors for current chapter
+    const currentSpellErrors = useMemo(() => {
+        return currentChapterId ? (chapterSpellErrors[currentChapterId] || []) : [];
+    }, [chapterSpellErrors, currentChapterId]);
+
+    const handleSpellCheckErrors = useCallback((chapterId, errors) => {
+        setChapterSpellErrors(prev => {
+            // Only update if errors actually changed to avoid infinite loops if referentially unstable
+            if (JSON.stringify(prev[chapterId]) === JSON.stringify(errors)) return prev;
+            return { ...prev, [chapterId]: errors };
+        });
+    }, []);
 
     if (!currentBook) return <div className="flex items-center justify-center h-screen">Loading...</div>;
 
@@ -585,9 +747,10 @@ function EditorPage() {
                 <div
                     className={`
                         border-r flex flex-col shrink-0 transition-all duration-300 ease-in-out
-                        ${leftSidebarVisible ? 'w-64 opacity-100 translate-x-0' : 'w-0 opacity-0 -translate-x-full overflow-hidden'}
+                        ${leftSidebarVisible ? 'opacity-100 translate-x-0' : 'w-0 opacity-0 -translate-x-full overflow-hidden'}
                         ${darkMode ? 'border-gray-800 bg-gray-900/60 backdrop-blur-md' : 'border-gray-200 bg-white/60 backdrop-blur-md'}
                     `}
+                    style={{ width: leftSidebarVisible ? leftSidebarWidth : 0 }}
                     onContextMenu={(e) => handleContextMenu(e, null)}
                 >
                     <div className="p-4 border-b border-gray-200/50 dark:border-gray-800/50 flex justify-between items-center whitespace-nowrap overflow-hidden">
@@ -600,13 +763,23 @@ function EditorPage() {
                     <ChapterList
                         chapters={chapters}
                         activeId={currentChapterId}
+                        selectedIds={selectedIds}
                         onSelect={handleSelectChapter}
                         onChange={handleChaptersChange}
                         onContextMenu={handleContextMenu}
                         expanded={expandedChapters}
                         onToggle={handleToggleExpand}
+                        onRename={handleRename}
                     />
                 </div>
+                
+                {/* Left Resizer */}
+                {leftSidebarVisible && (
+                    <div
+                        className="w-1 hover:bg-blue-500/50 transition-colors z-50 cursor-col-resize select-none shrink-0"
+                        onMouseDown={(e) => { e.preventDefault(); setIsResizingLeft(true); }}
+                    />
+                )}
 
                 {/* Editors Area (Keep Alive) */}
                 <div className={`flex-1 overflow-y-auto relative ${darkMode ? 'bg-[#1a1a1a]' : 'bg-white'}`}>
@@ -622,6 +795,7 @@ function EditorPage() {
                             {/* Render all open editors, hide inactive ones */}
                             {Array.from(openChapters).map(chapterId => {
                                 const content = loadedContents[chapterId];
+                                const chapter = findChapter(chapters, chapterId);
                                 if (!content) {
                                     return chapterId === currentChapterId ? (
                                         <div key={chapterId} className="flex items-center justify-center h-full text-gray-400">
@@ -637,14 +811,17 @@ function EditorPage() {
                                         focusMode={focusMode}
                                         initialContent={content}
                                         currentBookPath={currentBook.path}
-                                        chapters={chapters}
+                                        chapterTitle={chapter ? chapter.title : ''}
                                         setOutline={setOutline}
                                         setLastSaved={setLastSaved}
                                         editorRefs={editorRefs}
                                         handleRename={handleRename}
+                                        onStatsUpdate={handleStatsUpdate}
                                         currentChapterId={currentChapterId} // pass this to check if outline update needed
                                         outline={outline} // pass outline for diff check
                                         darkMode={darkMode}
+                                        spellCheckEnabled={spellCheckEnabled}
+                                        onSpellCheckErrors={(errors) => handleSpellCheckErrors(chapterId, errors)}
                                     />
                                 );
                             })}
@@ -657,37 +834,31 @@ function EditorPage() {
                     )}
                 </div>
 
-                {/* Right Sidebar (Outline) */}
+                {/* Right Resizer */}
+                {rightSidebarVisible && (
+                    <div
+                        className="w-1 hover:bg-blue-500/50 transition-colors z-50 cursor-col-resize select-none shrink-0"
+                        onMouseDown={(e) => { e.preventDefault(); setIsResizingRight(true); }}
+                    />
+                )}
+
+                {/* Right Sidebar (Outline / SpellCheck) */}
                 <div
                     className={`
                         border-l flex flex-col shrink-0 transition-all duration-300 ease-in-out
-                        ${rightSidebarVisible ? 'w-64 opacity-100 translate-x-0' : 'w-0 opacity-0 translate-x-full overflow-hidden'}
+                        ${rightSidebarVisible ? 'opacity-100 translate-x-0' : 'w-0 opacity-0 translate-x-full overflow-hidden'}
                         ${darkMode ? 'border-gray-800 bg-gray-900/60 backdrop-blur-md' : 'border-gray-200 bg-white/60 backdrop-blur-md'}
                     `}
+                    style={{ width: rightSidebarVisible ? rightSidebarWidth : 0 }}
                 >
-                    <div className="p-4 border-b border-gray-200/50 dark:border-gray-800/50 flex justify-between items-center whitespace-nowrap overflow-hidden">
-                        <span className="font-medium text-sm text-gray-500">大纲</span>
-                    </div>
-                    <div className="flex-1 overflow-y-auto p-4 space-y-2">
-                        {outline.length === 0 ? (
-                            <div className="text-gray-400 text-sm text-center py-8">暂无大纲</div>
-                        ) : (
-                            outline.map((item, index) => (
-                                <div
-                                    key={item.id}
-                                    className={`
-                                        cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 rounded-lg py-1 px-2 text-sm transition-colors
-                                        ${item.level === 1 ? 'font-bold' : ''}
-                                        ${item.level === 2 ? 'pl-4' : ''}
-                                        ${item.level === 3 ? 'pl-8' : ''}
-                                    `}
-                                    onClick={() => handleJumpToHeading(item.id)}
-                                >
-                                    {item.text || '无标题'}
-                                </div>
-                            ))
-                        )}
-                    </div>
+                    <RightSidebar 
+                        outline={outline}
+                        spellCheckEnabled={spellCheckEnabled}
+                        spellErrors={currentSpellErrors}
+                        onJumpToHeading={handleJumpToHeading}
+                        onJumpToError={handleJumpToError}
+                        darkMode={darkMode}
+                    />
                 </div>
             </div>
 
@@ -708,16 +879,18 @@ function EditorPage() {
                             >
                                 <Scissors size={12} /> 剪切
                             </button>
-                            <button
-                                className="w-full text-left px-3 py-1 text-sm rounded-lg hover:bg-black/5 dark:hover:bg-white/10 flex items-center gap-2 transition-colors"
-                                onClick={() => {
-                                    setRenameModal({ open: true, itemId: contextMenu.item.id, name: contextMenu.item.title });
-                                    setContextMenu(null);
-                                }}
-                                style={{ "borderRadius": "16px" }}
-                            >
-                                <Edit2 size={12} /> 重命名
-                            </button>
+                            {(!selectedIds.has(contextMenu.item.id) || selectedIds.size <= 1) && (
+                                <button
+                                    className="w-full text-left px-3 py-1 text-sm rounded-lg hover:bg-black/5 dark:hover:bg-white/10 flex items-center gap-2 transition-colors"
+                                    onClick={() => {
+                                        setRenameModal({ open: true, itemId: contextMenu.item.id, name: contextMenu.item.title });
+                                        setContextMenu(null);
+                                    }}
+                                    style={{ "borderRadius": "16px" }}
+                                >
+                                    <Edit2 size={12} /> 重命名
+                                </button>
+                            )}
                             <button
                                 className="w-full text-left px-3 py-1 text-sm rounded-lg hover:bg-red-50 dark:hover:bg-red-900/30 text-red-500 flex items-center gap-2 transition-colors"
                                 onClick={() => {
@@ -726,7 +899,7 @@ function EditorPage() {
                                 }}
                                 style={{ "borderRadius": "16px" }}
                             >
-                                <Trash2 size={12} /> 删除
+                                <Trash2 size={12} /> 删除 {selectedIds.size > 1 ? `(${selectedIds.size})` : ''}
                             </button>
 
                             {contextMenu.item.type === 'folder' && (
@@ -825,6 +998,15 @@ function EditorPage() {
                     </div>
                 </div>
             </Modal>
+
+            {/* Word Count Bar */}
+            <WordCountBar 
+                totalStats={totalStats}
+                currentStats={currentStats}
+                darkMode={darkMode}
+                spellCheckEnabled={spellCheckEnabled}
+                onToggleSpellCheck={setSpellCheckEnabled}
+            />
         </div>
     );
 }
@@ -836,29 +1018,19 @@ const ChapterEditorWrapper = React.memo(({
     focusMode, 
     initialContent, 
     currentBookPath,
-    chapters,
+    chapterTitle,
     setOutline,
     setLastSaved,
     editorRefs,
     handleRename,
+    onStatsUpdate,
     currentChapterId,
     outline,
-    darkMode
+    darkMode,
+    spellCheckEnabled,
+    onSpellCheckErrors
 }) => {
     const saveTimeoutRef = useRef(null);
-
-    // Helper to find chapter (duplicated but needed inside memo)
-    // Actually we can pass findChapter from props, but chapters is passed.
-    const findChapter = (items, id) => {
-        for (const item of items) {
-            if (item.id === id) return item;
-            if (item.children) {
-                const found = findChapter(item.children, id);
-                if (found) return found;
-            }
-        }
-        return null;
-    };
 
     const extractOutline = (content) => {
         if (!content) return [];
@@ -870,6 +1042,14 @@ const ChapterEditorWrapper = React.memo(({
                 level: block.props.level
             }));
     };
+    
+    // Initial stats calculation
+    useEffect(() => {
+        if (initialContent) {
+            const stats = BookManager.getWordCount(initialContent);
+            onStatsUpdate(chapterId, stats);
+        }
+    }, [initialContent, chapterId, onStatsUpdate]);
 
     const handleChange = useCallback((content) => {
          // Auto-Rename Logic
@@ -877,32 +1057,14 @@ const ChapterEditorWrapper = React.memo(({
             const firstBlock = content[0];
             if (firstBlock.type === 'heading' && firstBlock.props.level === 1) {
                 const newTitle = firstBlock.content?.[0]?.text || '无标题';
-                const chapter = findChapter(chapters, chapterId);
-                if (chapter && chapter.title !== newTitle) {
+                // Use chapterTitle prop for check
+                if (chapterTitle !== newTitle) {
                     handleRename(chapterId, newTitle);
                 }
             }
         }
 
         // Update Outline
-        // Only update if this is the current chapter
-        // We can check currentChapterId via prop
-        // Wait, currentChapterId changes often. If we depend on it, we re-render often.
-        // But isActive check is enough?
-        // If isActive is true, we update outline.
-        // We need to access setOutline.
-        // And we need to compare with current outline?
-        // Accessing 'outline' state might be expensive if we pass it here.
-        // But React.memo compares props.
-        
-        // Let's simplify: Always calculate outline if active.
-        // But we need to avoid setOutline if same.
-        // We can use a ref for last outline in parent? Or here.
-        // Parent has 'outline' state.
-        // If we want to avoid re-rendering Wrapper when 'outline' changes, we shouldn't pass outline.
-        // But we need to know it to avoid infinite loops?
-        // Actually setOutline((prev) => ...) is better.
-        
         if (isActive) {
             const newOutline = extractOutline(content);
             setOutline(prev => {
@@ -913,6 +1075,10 @@ const ChapterEditorWrapper = React.memo(({
             });
         }
 
+        // Calculate Stats
+        const stats = BookManager.getWordCount(content);
+        onStatsUpdate(chapterId, stats);
+
         // Debounced Save
         if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
         saveTimeoutRef.current = setTimeout(async () => {
@@ -920,14 +1086,12 @@ const ChapterEditorWrapper = React.memo(({
             setLastSaved(new Date());
         }, 1000);
 
-    }, [chapterId, currentBookPath, chapters, isActive, handleRename, setOutline, setLastSaved]); 
+    }, [chapterId, currentBookPath, chapterTitle, isActive, handleRename, setOutline, setLastSaved, onStatsUpdate]); 
     // Dependencies: 
-    // chapters: changes when rename happens. So wrapper re-renders. Acceptable.
+    // chapterTitle: changes when rename happens. Wrapper re-renders.
     // isActive: changes when switching.
     // handleRename: stable.
-    
-    // If we are typing in Chapter A, chapters doesn't change (unless rename).
-    // So handleChange is stable.
+    // onStatsUpdate: stable.
     
     const handleUploadFile = useCallback(async (file) => {
         return await BookManager.saveAsset(currentBookPath, file);
@@ -945,6 +1109,8 @@ const ChapterEditorWrapper = React.memo(({
                 lang="zh"
                 uploadFile={handleUploadFile}
                 darkMode={darkMode}
+                spellCheckEnabled={spellCheckEnabled}
+                onSpellCheckErrors={onSpellCheckErrors}
             />
         </div>
     );

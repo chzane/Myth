@@ -27,68 +27,77 @@ const isDescendant = (items, sourceId, targetId) => {
     return !!findItem(source.children, targetId);
 };
 
-// Helper to remove an item from the tree
-const removeItem = (items, id) => {
-    let removedItem = null;
-    const newItems = items.reduce((acc, item) => {
-        if (item.id === id) {
-            removedItem = item;
+// Helper to remove items from the tree
+const removeItems = (items, idsToRemove) => {
+    const removed = [];
+    const recurse = (currentItems) => {
+        return currentItems.reduce((acc, item) => {
+            if (idsToRemove.has(item.id)) {
+                removed.push(item);
+                return acc;
+            }
+            if (item.children) {
+                const newChildren = recurse(item.children);
+                acc.push({ ...item, children: newChildren });
+            } else {
+                acc.push(item);
+            }
             return acc;
-        }
-        if (item.children) {
-            const { newItems: newChildren, removedItem: removed } = removeItem(item.children, id);
-            if (removed) removedItem = removed;
-            acc.push({ ...item, children: newChildren });
-        } else {
-            acc.push(item);
-        }
-        return acc;
-    }, []);
-    return { newItems, removedItem };
+        }, []);
+    };
+    const newItems = recurse(items);
+    return { newItems, removedItems: removed };
 };
 
-// Helper to insert an item into the tree
-const insertItem = (items, targetId, itemToInsert, position) => {
-    // position: 'before', 'after', 'inside'
-    
-    // Check if target is at this level
+// Helper to remove a single item (legacy wrapper or unused)
+const removeItem = (items, id) => {
+    const { newItems, removedItems } = removeItems(items, new Set([id]));
+    return { newItems, removedItem: removedItems[0] };
+};
+
+// Helper to insert items into the tree
+const insertItems = (items, targetId, itemsToInsert, position) => {
     const targetIndex = items.findIndex(i => i.id === targetId);
     if (targetIndex !== -1) {
         const newItems = [...items];
         if (position === 'inside') {
-            // Add to children of target
             const targetItem = newItems[targetIndex];
             newItems[targetIndex] = {
                 ...targetItem,
-                children: [...(targetItem.children || []), itemToInsert]
+                children: [...(targetItem.children || []), ...itemsToInsert]
             };
             return newItems;
         } else if (position === 'before') {
-            newItems.splice(targetIndex, 0, itemToInsert);
+            newItems.splice(targetIndex, 0, ...itemsToInsert);
             return newItems;
         } else if (position === 'after') {
-            newItems.splice(targetIndex + 1, 0, itemToInsert);
+            newItems.splice(targetIndex + 1, 0, ...itemsToInsert);
             return newItems;
         }
     }
 
-    // Recurse
     return items.map(item => {
         if (item.children) {
             return { 
                 ...item, 
-                children: insertItem(item.children, targetId, itemToInsert, position) 
+                children: insertItems(item.children, targetId, itemsToInsert, position) 
             };
         }
         return item;
     });
 };
 
+// Helper to insert a single item (legacy wrapper)
+const insertItem = (items, targetId, itemToInsert, position) => {
+    return insertItems(items, targetId, [itemToInsert], position);
+};
+
 // Item Component
 const ChapterItem = memo(({ 
     item, 
     level = 0, 
-    activeId, 
+    activeId,
+    selectedIds,
     onSelect, 
     onToggle, 
     isExpanded, 
@@ -97,19 +106,49 @@ const ChapterItem = memo(({
     onDragOver,
     onDrop,
     onDragEnd,
-    dragOverInfo
+    dragOverInfo,
+    onRename
 }) => {
     const isFolder = item.type === 'folder';
     const isActive = activeId === item.id;
+    const isSelected = selectedIds ? selectedIds.has(item.id) : isActive;
     
     // Drag visual indicators
     const isOver = dragOverInfo?.id === item.id;
     const position = isOver ? dragOverInfo.position : null;
     
+    // Editing State
+    const [isEditing, setIsEditing] = useState(false);
+    const [editValue, setEditValue] = useState(item.title);
+
+    const handleDoubleClick = (e) => {
+        e.stopPropagation();
+        if (onRename) {
+            setIsEditing(true);
+            setEditValue(item.title);
+        }
+    };
+
+    const handleSave = () => {
+        if (editValue.trim() && editValue !== item.title) {
+            onRename(item.id, editValue);
+        }
+        setIsEditing(false);
+    };
+
+    const handleKeyDown = (e) => {
+        if (e.key === 'Enter') {
+            handleSave();
+        } else if (e.key === 'Escape') {
+            setIsEditing(false);
+            setEditValue(item.title);
+        }
+    };
+    
     let style = { paddingLeft: `${level * 12 + 12}px` };
     let className = `
         group flex items-center gap-2 py-1 px-2 cursor-pointer select-none transition-colors border-y-2 border-transparent
-        ${isActive ? 'bg-gray-100 dark:bg-gray-800 text-black dark:text-white font-medium' : 'text-gray-600 dark:text-gray-400'}
+        ${(isSelected || isActive) ? 'bg-gray-100 dark:bg-gray-800 text-black dark:text-white font-medium' : 'text-gray-600 dark:text-gray-400'}
         hover:bg-gray-100 dark:hover:bg-gray-800
     `;
 
@@ -124,8 +163,8 @@ const ChapterItem = memo(({
 
     return (
         <div
-            draggable
-            onDragStart={(e) => onDragStart(e, item)}
+            draggable={!isEditing}
+            onDragStart={(e) => !isEditing && onDragStart(e, item)}
             onDragOver={(e) => onDragOver(e, item)}
             onDrop={(e) => onDrop(e, item)}
             onDragEnd={onDragEnd}
@@ -133,10 +172,21 @@ const ChapterItem = memo(({
             style={style}
             onClick={(e) => {
                 e.stopPropagation();
+                if (isEditing) return;
                 if (isFolder) {
                     onToggle(item.id);
+                    // Also select it if needed? Usually clicking folder toggles it.
+                    // But maybe we want to select it too?
+                    // Let's pass event to onSelect just in case we want to select folder.
+                    // But current logic: click folder -> toggle.
+                    // If we want to multi-select folders, we might need to handle click differently.
+                    // For now, assume folder click = toggle.
+                    // If modifier key is pressed, maybe select?
+                    if (e.ctrlKey || e.metaKey || e.shiftKey) {
+                        onSelect(item.id, e);
+                    }
                 } else {
-                    onSelect(item.id);
+                    onSelect(item.id, e);
                 }
             }}
             onContextMenu={(e) => onContextMenu(e, item)}
@@ -145,6 +195,7 @@ const ChapterItem = memo(({
                 className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
                 onClick={(e) => {
                     e.stopPropagation();
+                    if (isEditing) return;
                     if (isFolder) onToggle(item.id);
                 }}
             >
@@ -161,25 +212,47 @@ const ChapterItem = memo(({
                 <FileText size={16} className="text-blue-500" />
             )}
             
-            <span className="truncate flex-1 text-sm">{item.title}</span>
+            {isEditing ? (
+                <input 
+                    type="text" 
+                    value={editValue} 
+                    onChange={(e) => setEditValue(e.target.value)}
+                    onBlur={handleSave}
+                    onKeyDown={handleKeyDown}
+                    autoFocus
+                    className="flex-1 min-w-0 bg-white dark:bg-black border border-blue-500 rounded px-1 text-sm focus:outline-none"
+                    onClick={(e) => e.stopPropagation()} 
+                />
+            ) : (
+                <span 
+                    className="truncate flex-1 text-sm"
+                    onDoubleClick={handleDoubleClick}
+                >
+                    {item.title}
+                </span>
+            )}
         </div>
     );
 }, (prev, next) => {
     return prev.item === next.item &&
            prev.activeId === next.activeId &&
+           (prev.selectedIds === next.selectedIds || 
+            (prev.selectedIds?.has(prev.item.id) === next.selectedIds?.has(next.item.id))) &&
            prev.isExpanded === next.isExpanded &&
            prev.level === next.level &&
            (prev.dragOverInfo?.id === prev.item.id ? prev.dragOverInfo : null) === 
            (next.dragOverInfo?.id === next.item.id ? next.dragOverInfo : null) &&
            (prev.dragOverInfo?.id === prev.item.id || next.dragOverInfo?.id === next.item.id ? 
-            prev.dragOverInfo === next.dragOverInfo : true);
+            prev.dragOverInfo === next.dragOverInfo : true) &&
+           prev.onRename === next.onRename;
 });
 
 // Recursive List Component
 const ChapterTree = memo(({ 
     items, 
     level = 0, 
-    activeId, 
+    activeId,
+    selectedIds,
     onSelect, 
     onToggle, 
     expandedIds, 
@@ -188,7 +261,8 @@ const ChapterTree = memo(({
     onDragOver,
     onDrop,
     onDragEnd,
-    dragOverInfo
+    dragOverInfo,
+    onRename
 }) => {
     return (
         <>
@@ -198,6 +272,7 @@ const ChapterTree = memo(({
                         item={item} 
                         level={level}
                         activeId={activeId}
+                        selectedIds={selectedIds}
                         onSelect={onSelect}
                         onToggle={onToggle}
                         isExpanded={expandedIds.includes(item.id)}
@@ -207,12 +282,14 @@ const ChapterTree = memo(({
                         onDrop={onDrop}
                         onDragEnd={onDragEnd}
                         dragOverInfo={dragOverInfo}
+                        onRename={onRename}
                     />
                     {item.type === 'folder' && expandedIds.includes(item.id) && item.children && (
                         <ChapterTree 
                             items={item.children} 
                             level={level + 1}
                             activeId={activeId}
+                            selectedIds={selectedIds}
                             onSelect={onSelect}
                             onToggle={onToggle}
                             expandedIds={expandedIds}
@@ -222,6 +299,7 @@ const ChapterTree = memo(({
                             onDrop={onDrop}
                             onDragEnd={onDragEnd}
                             dragOverInfo={dragOverInfo}
+                            onRename={onRename}
                         />
                     )}
                 </React.Fragment>
@@ -232,12 +310,14 @@ const ChapterTree = memo(({
 
 const ChapterList = ({ 
     chapters, 
-    activeId, 
+    activeId,
+    selectedIds,
     onSelect, 
     onChange,
     onContextMenu,
     expanded: controlledExpanded,
-    onToggle: controlledOnToggle
+    onToggle: controlledOnToggle,
+    onRename
 }) => {
     const [internalExpanded, setInternalExpanded] = useState([]);
     const [dragOverInfo, setDragOverInfo] = useState(null); // { id, position }
@@ -258,22 +338,39 @@ const ChapterList = ({
     // Drag Handlers
     const handleDragStart = useCallback((e, item) => {
         e.stopPropagation();
-        draggedItemRef.current = item;
+        
+        let itemsToDrag = [item.id];
+        if (selectedIds && selectedIds.has(item.id)) {
+            itemsToDrag = Array.from(selectedIds);
+        } else {
+             // If dragging unselected item, treat as single selection
+             // But we should probably select it?
+             // Calling onSelect here might be risky during drag start?
+             // Let's just drag it.
+             if (onSelect) onSelect(item.id, {}); 
+             itemsToDrag = [item.id];
+        }
+        
+        draggedItemRef.current = itemsToDrag;
         e.dataTransfer.effectAllowed = 'move';
-    }, []);
+    }, [selectedIds, onSelect]);
 
     const handleDragOver = useCallback((e, targetItem) => {
         e.preventDefault();
         e.stopPropagation();
         
-        const draggedItem = draggedItemRef.current;
-        if (!draggedItem) return;
-        if (draggedItem.id === targetItem.id) return;
+        const draggedIds = draggedItemRef.current;
+        if (!draggedIds) return;
+        
+        // Cannot drag into self
+        if (draggedIds.includes(targetItem.id)) return;
         
         // Cannot drag parent into child
-        if (isDescendant(chapters, draggedItem.id, targetItem.id)) {
-            e.dataTransfer.dropEffect = 'none';
-            return;
+        for (const id of draggedIds) {
+            if (isDescendant(chapters, id, targetItem.id)) {
+                e.dataTransfer.dropEffect = 'none';
+                return;
+            }
         }
 
         e.dataTransfer.dropEffect = 'move';
@@ -297,6 +394,7 @@ const ChapterList = ({
             // File zones:
             // Top 50%: Before
             // Bottom 50%: After
+            // Middle zone for folder conversion? No.
             if (y < height * 0.5) position = 'before';
             else position = 'after';
         }
@@ -311,23 +409,24 @@ const ChapterList = ({
         e.preventDefault();
         e.stopPropagation();
         
-        const draggedItem = draggedItemRef.current;
+        const draggedIds = draggedItemRef.current;
         const info = dragOverInfo;
         
         setDragOverInfo(null);
         draggedItemRef.current = null;
         
-        if (!draggedItem || !info || info.id !== targetItem.id) return;
-        if (draggedItem.id === targetItem.id) return;
+        if (!draggedIds || !info || info.id !== targetItem.id) return;
+        if (draggedIds.includes(targetItem.id)) return;
 
         // Execute Move
+        const idsSet = new Set(draggedIds);
         // 1. Remove from old location
-        const { newItems: itemsWithoutDragged, removedItem } = removeItem(chapters, draggedItem.id);
+        const { newItems: itemsWithoutDragged, removedItems } = removeItems(chapters, idsSet);
         
-        if (!removedItem) return;
+        if (removedItems.length === 0) return;
 
         // 2. Insert to new location
-        const newChapters = insertItem(itemsWithoutDragged, targetItem.id, removedItem, info.position);
+        const newChapters = insertItems(itemsWithoutDragged, targetItem.id, removedItems, info.position);
         
         // 3. Update state
         if (onChange) {
@@ -353,8 +452,8 @@ const ChapterList = ({
         e.preventDefault();
         e.stopPropagation();
         
-        const draggedItem = draggedItemRef.current;
-        if (!draggedItem) return;
+        const draggedIds = draggedItemRef.current;
+        if (!draggedIds) return;
         
         e.dataTransfer.dropEffect = 'move';
         
@@ -368,17 +467,18 @@ const ChapterList = ({
         e.preventDefault();
         e.stopPropagation();
         
-        const draggedItem = draggedItemRef.current;
-        if (!draggedItem) return;
+        const draggedIds = draggedItemRef.current;
+        if (!draggedIds) return;
 
         setDragOverInfo(null);
         draggedItemRef.current = null;
 
-        const { newItems: itemsWithoutDragged, removedItem } = removeItem(chapters, draggedItem.id);
-        if (!removedItem) return;
+        const idsSet = new Set(draggedIds);
+        const { newItems: itemsWithoutDragged, removedItems } = removeItems(chapters, idsSet);
+        if (removedItems.length === 0) return;
 
         // Add to end of root
-        const newChapters = [...itemsWithoutDragged, removedItem];
+        const newChapters = [...itemsWithoutDragged, ...removedItems];
         if (onChange) onChange(newChapters);
     }, [chapters, onChange]);
 
@@ -393,6 +493,7 @@ const ChapterList = ({
                 <ChapterTree 
                     items={chapters} 
                     activeId={activeId}
+                    selectedIds={selectedIds}
                     onSelect={onSelect}
                     onToggle={handleToggle}
                     expandedIds={expanded}
@@ -402,6 +503,7 @@ const ChapterList = ({
                     onDrop={handleDrop}
                     onDragEnd={handleDragEnd}
                     dragOverInfo={dragOverInfo}
+                    onRename={onRename}
                 />
             </div>
             

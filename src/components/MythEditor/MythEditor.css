@@ -388,6 +388,10 @@ button[data-test-id^="toolbar-select"]:hover {
     font-size: 14px;
 }
 
+.mantine-Menu-label {
+    font-size: 12px;
+}
+
 .mantine-Input-input.mantine-TextInput-input[name="url"],
 .mantine-Input-input.mantine-TextInput-input[name="file-caption"],
 .mantine-Input-input.mantine-TextInput-input[name="file-name"] {

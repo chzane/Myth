@@ -252,6 +252,84 @@ class BookManager {
             return null;
         }
     }
+
+    getWordCount(content) {
+        if (!content || !Array.isArray(content)) return { chinese: 0, english: 0, special: 0, total: 0 };
+
+        let chinese = 0;
+        let english = 0;
+        let special = 0;
+
+        const processText = (text) => {
+            if (!text) return;
+            
+            // Chinese characters
+            const chineseMatches = text.match(/[\u4e00-\u9fa5]/g);
+            if (chineseMatches) chinese += chineseMatches.length;
+
+            // English words (sequences of letters)
+            const englishMatches = text.match(/[a-zA-Z]+/g);
+            if (englishMatches) english += englishMatches.length;
+
+            // Digits and other special characters (excluding whitespace and control chars)
+            // This is a rough approximation. We can refine it.
+            // Let's count non-Chinese, non-English, non-whitespace characters as special.
+            // Remove Chinese and English
+            let remaining = text.replace(/[\u4e00-\u9fa5]/g, '').replace(/[a-zA-Z]+/g, '');
+            // Count remaining non-whitespace
+            const otherMatches = remaining.match(/[^\s\u200b\uFEFF]/g);
+            if (otherMatches) special += otherMatches.length;
+        };
+
+        const traverse = (blocks) => {
+            if (!Array.isArray(blocks)) return;
+            for (const block of blocks) {
+                if (block.content) {
+                    if (Array.isArray(block.content)) {
+                        // Inline content objects
+                        block.content.forEach(item => {
+                            if (item.type === 'text') processText(item.text);
+                            // Handle links or other inline types if they have text
+                            if (item.type === 'link') {
+                                if (Array.isArray(item.content)) {
+                                    item.content.forEach(sub => {
+                                        if (sub.type === 'text') processText(sub.text);
+                                    });
+                                }
+                            }
+                        });
+                    } else if (typeof block.content === 'string') {
+                         processText(block.content);
+                    }
+                }
+                
+                // Tables
+                if (block.type === 'table') {
+                     // Table content structure is specific
+                     if (block.content && block.content.rows) {
+                         block.content.rows.forEach(row => {
+                             row.cells.forEach(cell => {
+                                 traverse(cell); // Cell content is block array
+                             });
+                         });
+                     }
+                }
+
+                if (block.children) {
+                    traverse(block.children);
+                }
+            }
+        };
+
+        traverse(content);
+
+        return {
+            chinese,
+            english,
+            special,
+            total: chinese + english + special
+        };
+    }
 }
 
 export default new BookManager();

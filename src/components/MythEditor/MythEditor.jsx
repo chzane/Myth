@@ -8,7 +8,7 @@ import {
     BlockNoteSchema,
     createStyleSpec
 } from "@blocknote/core";
-import { useCallback, useMemo, useState, useEffect } from "react";
+import { useCallback, useMemo, useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import {
     useCreateBlockNote,
@@ -41,6 +41,7 @@ import { Alert } from "./Blocks/AlertBox";
 import * as locales from "@blocknote/core/locales";
 
 import "./MythEditor.css";
+import SpellCheckManager from "../../utils/SpellCheckManager";
 
 const OpenInFinderButton = ({ editor }) => {
     const components = useComponentsContext();
@@ -258,7 +259,7 @@ const ToolbarPortal = ({ container, children }) => {
     ) : null;
 };
 
-function MythEditor({ lang = "zh", initialContent, onChange, onEditorReady, uploadFile, darkMode }) {
+function MythEditor({ lang = "zh", initialContent, onChange, onEditorReady, uploadFile, darkMode, spellCheckEnabled = false, onSpellCheckErrors }) {
     const [toolbarContainer, setToolbarContainer] = useState(null);
     const alertLabels = useMemo(() => {
         const isZh = typeof lang === "string" && lang.toLowerCase().startsWith("zh");
@@ -350,6 +351,19 @@ function MythEditor({ lang = "zh", initialContent, onChange, onEditorReady, uplo
             ...defaultStyleSpecs,
             fontSize: fontSizeStyleSpec,
             fontFamily: fontFamilyStyleSpec,
+            spellError: createStyleSpec({
+                type: "spellError",
+                propSchema: "string"
+            }, {
+                render: (value) => {
+                    const dom = document.createElement("span");
+                    dom.style.textDecoration = "underline wavy red";
+                    dom.style.textDecorationSkipInk = "none";
+                    dom.setAttribute("data-spell-error", "true");
+                    dom.title = value || "Spelling error";
+                    return { dom, contentDOM: dom };
+                }
+            })
         };
         const missing = Object.entries(merged)
             .filter(([, value]) => !value)
@@ -392,6 +406,147 @@ function MythEditor({ lang = "zh", initialContent, onChange, onEditorReady, uplo
             onEditorReady(editor);
         }
     }, [editor, onEditorReady]);
+
+    // Spell Check Effect
+    // Since managing spell check styles directly on content is intrusive (modifies document),
+    // we should ideally use ProseMirror decorations.
+    // BlockNote exposes the underlying TipTap/ProseMirror instance via `editor._tiptapEditor`.
+    
+    // Spell Check Cache
+    const spellCheckCacheRef = useRef(new Map());
+
+    useEffect(() => {
+        if (!editor || !editor._tiptapEditor) return;
+        
+        const tiptap = editor._tiptapEditor;
+        
+        // Function to run spell check on the document
+        const runSpellCheck = () => {
+            if (!spellCheckEnabled) {
+                // Clear all spell check marks
+                const { doc } = tiptap.state;
+                const tr = tiptap.state.tr;
+                
+                doc.descendants((node, pos) => {
+                    if (node.isText) {
+                         const marks = node.marks.filter(m => m.type.name === 'spellError');
+                         if (marks.length > 0) {
+                             tr.removeMark(pos, pos + node.nodeSize, tiptap.schema.marks.spellError);
+                         }
+                    }
+                });
+                
+                if (tr.docChanged) {
+                    tiptap.view.dispatch(tr);
+                }
+                if (onSpellCheckErrors) onSpellCheckErrors([]);
+                return;
+            }
+
+            // Run check
+            const { doc } = tiptap.state;
+            const tr = tiptap.state.tr;
+            let hasChanges = false;
+            const allErrors = [];
+
+            // 1. First, clear existing marks to avoid stale ones
+            // NOTE: We could optimize this by only clearing marks in changed blocks,
+            // but for simplicity and correctness with cache invalidation, we clear all
+            // and re-apply from cache or fresh check.
+            // Wait, if we clear all, we lose the benefit of "not re-rendering" marks?
+            // Actually, we need to know WHICH blocks changed.
+            // But here we are iterating the whole doc.
+            
+            // Optimization: We can iterate nodes, generate a hash/key for content,
+            // check cache, if hit, reuse errors (and apply marks).
+            // If miss, run check, update cache.
+            
+            // Since we need to return ALL errors to the sidebar, we must traverse the whole doc anyway.
+            // The expensive part is SpellCheckManager.check(text).
+            
+            doc.descendants((node, pos) => {
+                if (!node.isText) return;
+                
+                // Clear existing marks first (brute force approach for correctness)
+                const marks = node.marks.filter(m => m.type.name === 'spellError');
+                if (marks.length > 0) {
+                    tr.removeMark(pos, pos + node.nodeSize, tiptap.schema.marks.spellError);
+                    hasChanges = true;
+                }
+
+                const text = node.text;
+                // Simple cache key: just the text content. 
+                // Collision risk is low for spell check context (same text = same errors).
+                // Ideally we use a block ID, but text nodes don't have stable IDs.
+                // But spell check is purely function of text. So text as key is perfect.
+                
+                let errors;
+                if (spellCheckCacheRef.current.has(text)) {
+                    errors = spellCheckCacheRef.current.get(text);
+                } else {
+                    errors = SpellCheckManager.check(text);
+                    spellCheckCacheRef.current.set(text, errors);
+                }
+                
+                errors.forEach(error => {
+                    const from = pos + error.index;
+                    const to = from + error.length;
+                    
+                    // Add mark
+                    tr.addMark(from, to, tiptap.schema.marks.spellError.create({
+                        value: error.suggestions ? error.suggestions.join(', ') : 'Spelling error'
+                    }));
+                    hasChanges = true;
+                    
+                    allErrors.push({
+                        ...error,
+                        from,
+                        to
+                    });
+                });
+            });
+
+            if (hasChanges) {
+                tiptap.view.dispatch(tr);
+            }
+            
+            if (onSpellCheckErrors) {
+                onSpellCheckErrors(allErrors);
+            }
+        };
+
+            // Debounce
+            let timeoutId;
+            const debouncedCheck = () => {
+                clearTimeout(timeoutId);
+                timeoutId = setTimeout(runSpellCheck, 1000);
+            };
+
+            // Initial run
+            debouncedCheck();
+
+            // Run check on mount if enabled (to catch errors in newly loaded chapter)
+            if (spellCheckEnabled) {
+                // We use setTimeout to ensure the editor is fully initialized and content is rendered
+                // This fixes the issue where switching chapters didn't show errors until typing
+                setTimeout(runSpellCheck, 100);
+            }
+
+            // Listen to updates
+            // We can hook into editor.onChange, but we need to access it here.
+            // The parent component handles onChange.
+            // We can add a listener to tiptap
+            const onUpdate = () => {
+                if (spellCheckEnabled) debouncedCheck();
+            };
+            
+            tiptap.on('update', onUpdate);
+
+            return () => {
+                tiptap.off('update', onUpdate);
+                clearTimeout(timeoutId);
+            };
+        }, [editor, spellCheckEnabled]);
 
     const [isSlashSearching, setIsSlashSearching] = useState(false);
 
@@ -493,6 +648,7 @@ function MythEditor({ lang = "zh", initialContent, onChange, onEditorReady, uplo
                 slashMenu={false}
                 formattingToolbar={false}
                 data-theming-css-variables-demo
+                spellCheck={false}
                 className={isSlashSearching ? "bn-slash-searching flex-1 overflow-y-auto" : "flex-1 overflow-y-auto"}
                 onChange={() => {
                     updateSlashSearchState(editor);
