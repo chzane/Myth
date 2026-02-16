@@ -3,6 +3,7 @@ const path = window.require('path');
 const { ipcRenderer } = window.require('electron');
 
 const { Buffer } = window.require('buffer');
+import { compressImage } from './compressImage.js';
 
 class BookManager {
     constructor() {
@@ -180,6 +181,46 @@ class BookManager {
         return await ipcRenderer.invoke('dialog:openFile', {
             filters: [{ name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'gif', 'webp'] }]
         });
+    }
+
+    async saveAsset(bookPath, file) {
+        try {
+            const assetsDir = path.join(bookPath, 'assets');
+            if (!fs.existsSync(assetsDir)) {
+                fs.mkdirSync(assetsDir, { recursive: true });
+            }
+
+            const ext = path.extname(file.name).toLowerCase();
+            const timestamp = Date.now();
+            const random = Math.random().toString(36).substring(7);
+            const filename = `${timestamp}-${random}${ext}`;
+            const targetPath = path.join(assetsDir, filename);
+
+            let buffer;
+            // Only compress images if it's not a gif (gifs lose animation)
+            if (['.jpg', '.jpeg', '.png', '.webp'].includes(ext)) {
+                try {
+                    const compressedBlob = await compressImage(file);
+                    const arrayBuffer = await compressedBlob.arrayBuffer();
+                    buffer = Buffer.from(arrayBuffer);
+                } catch (e) {
+                    console.error('Compression failed, saving original:', e);
+                    const arrayBuffer = await file.arrayBuffer();
+                    buffer = Buffer.from(arrayBuffer);
+                }
+            } else {
+                const arrayBuffer = await file.arrayBuffer();
+                buffer = Buffer.from(arrayBuffer);
+            }
+
+            fs.writeFileSync(targetPath, buffer);
+            
+            // Return myth:// protocol URL
+            return `myth://${targetPath}`;
+        } catch (error) {
+            console.error('Error saving asset:', error);
+            throw error;
+        }
     }
 
     async saveChapterContent(bookPath, chapterId, content) {

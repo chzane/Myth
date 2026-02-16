@@ -927,6 +927,10 @@ const ChapterEditorWrapper = React.memo(({
     // If we are typing in Chapter A, chapters doesn't change (unless rename).
     // So handleChange is stable.
     
+    const handleUploadFile = useCallback(async (file) => {
+        return await BookManager.saveAsset(currentBookPath, file);
+    }, [currentBookPath]);
+
     return (
         <div 
             style={{ display: isActive ? 'block' : 'none' }}
@@ -937,6 +941,7 @@ const ChapterEditorWrapper = React.memo(({
                 onEditorReady={(editor) => editorRefs.current[chapterId] = editor}
                 onChange={handleChange}
                 lang="zh"
+                uploadFile={handleUploadFile}
             />
         </div>
     );

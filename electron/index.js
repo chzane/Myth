@@ -1,9 +1,14 @@
-import { app, BrowserWindow, ipcMain, dialog, protocol } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog, protocol, shell } from 'electron'
 import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
+
+// Register privileges for myth protocol
+protocol.registerSchemesAsPrivileged([
+  { scheme: 'myth', privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true, stream: true } }
+])
 
 const createWindow = () => {
   const win = new BrowserWindow({
@@ -61,5 +66,13 @@ app.whenReady().then(() => {
 
   ipcMain.handle('get-user-data-path', () => {
     return app.getPath('userData')
+  })
+
+  ipcMain.handle('shell:showItemInFolder', async (_event, filePath) => {
+    if (filePath) {
+        // If it starts with myth://, strip it
+        const cleanPath = filePath.replace('myth://', '');
+        shell.showItemInFolder(cleanPath);
+    }
   })
 })

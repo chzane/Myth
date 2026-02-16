@@ -11,9 +11,26 @@ import {
     useCreateBlockNote,
     SuggestionMenuController,
     getDefaultReactSlashMenuItems,
+    FormattingToolbarController,
+    FormattingToolbar,
+    BlockTypeSelect,
+    BasicTextStyleButton,
+    TextAlignButton,
+    ColorStyleButton,
+    NestBlockButton,
+    UnnestBlockButton,
+    CreateLinkButton,
+    FileCaptionButton,
+    FileReplaceButton,
+    FileRenameButton,
+    FileDeleteButton,
+    FilePreviewButton,
+    useSelectedBlocks
 } from "@blocknote/react";
 import { filterSuggestionItems, insertOrUpdateBlockForSlashMenu } from "@blocknote/core/extensions";
 import { RiAlertFill } from "react-icons/ri";
+import { FolderOpen } from "lucide-react";
+import { ActionIcon, Tooltip } from "@mantine/core";
 
 import { Alert } from "./Blocks/AlertBox";
 
@@ -21,7 +38,38 @@ import * as locales from "@blocknote/core/locales";
 
 import "./MythEditor.css";
 
-function MythEditor({ lang = "zh", initialContent, onChange, onEditorReady }) {
+const OpenInFinderButton = ({ editor }) => {
+    const selectedBlocks = useSelectedBlocks(editor);
+    const block = selectedBlocks.length === 1 ? selectedBlocks[0] : null;
+
+    const isFileBlock = block && ['image', 'video', 'audio', 'file'].includes(block.type);
+
+    if (!isFileBlock) {
+        return null;
+    }
+
+    return (
+        <Tooltip label="在 Finder 中打开" withinPortal>
+            <ActionIcon 
+                size="lg" 
+                variant="subtle" 
+                color="gray" 
+                onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const url = block.props.url;
+                    if (url) {
+                         window.require('electron').ipcRenderer.invoke('shell:showItemInFolder', url);
+                    }
+                }}
+            >
+                <FolderOpen size={16} />
+            </ActionIcon>
+        </Tooltip>
+    );
+};
+
+function MythEditor({ lang = "zh", initialContent, onChange, onEditorReady, uploadFile }) {
     const alertLabels = useMemo(() => {
         const isZh = typeof lang === "string" && lang.toLowerCase().startsWith("zh");
         if (isZh) {
@@ -76,8 +124,9 @@ function MythEditor({ lang = "zh", initialContent, onChange, onEditorReady }) {
                     content: "开始写作...",
                 },
             ],
+            uploadFile,
         },
-        [schema, lang]
+        [schema, lang, uploadFile]
     );
 
     useEffect(() => {
@@ -137,6 +186,7 @@ function MythEditor({ lang = "zh", initialContent, onChange, onEditorReady }) {
         <BlockNoteView
             editor={editor}
             slashMenu={false}
+            formattingToolbar={false}
             data-theming-css-variables-demo
             className={isSlashSearching ? "bn-slash-searching" : undefined}
             onChange={() => {
@@ -152,6 +202,39 @@ function MythEditor({ lang = "zh", initialContent, onChange, onEditorReady }) {
                 getItems={async (query) =>
                     filterSuggestionItems(getCustomSlashMenuItems(), query)
                 }
+            />
+            <FormattingToolbarController
+                formattingToolbar={() => (
+                    <FormattingToolbar>
+                        <BlockTypeSelect key={"blockTypeSelect"} />
+
+                        {/* File Block Buttons */}
+                        <FileCaptionButton key={"fileCaptionButton"} />
+                        <FileReplaceButton key={"replaceFileButton"} />
+                        <OpenInFinderButton editor={editor} key={"openInFinderButton"} />
+                        <FileRenameButton key={"fileRenameButton"} />
+                        <FileDeleteButton key={"fileDeleteButton"} />
+                        <FilePreviewButton key={"filePreviewButton"} />
+
+                        {/* Basic Text Styles */}
+                        <BasicTextStyleButton basicTextStyle={"bold"} key={"boldStyleButton"} />
+                        <BasicTextStyleButton basicTextStyle={"italic"} key={"italicStyleButton"} />
+                        <BasicTextStyleButton basicTextStyle={"underline"} key={"underlineStyleButton"} />
+                        <BasicTextStyleButton basicTextStyle={"strike"} key={"strikeStyleButton"} />
+                        <BasicTextStyleButton basicTextStyle={"code"} key={"codeStyleButton"} />
+
+                        <TextAlignButton textAlignment={"left"} key={"textAlignLeftButton"} />
+                        <TextAlignButton textAlignment={"center"} key={"textAlignCenterButton"} />
+                        <TextAlignButton textAlignment={"right"} key={"textAlignRightButton"} />
+
+                        <ColorStyleButton key={"colorStyleButton"} />
+
+                        <NestBlockButton key={"nestBlockButton"} />
+                        <UnnestBlockButton key={"unnestBlockButton"} />
+
+                        <CreateLinkButton key={"createLinkButton"} />
+                    </FormattingToolbar>
+                )}
             />
         </BlockNoteView>
     );
