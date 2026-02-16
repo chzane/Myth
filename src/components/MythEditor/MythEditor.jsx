@@ -33,7 +33,7 @@ import {
 } from "@blocknote/react";
 import { filterSuggestionItems, insertOrUpdateBlockForSlashMenu } from "@blocknote/core/extensions";
 import { RiAlertFill } from "react-icons/ri";
-import { FolderOpen } from "lucide-react";
+import { FolderOpen, Replace } from "lucide-react";
 import { ActionIcon, Tooltip } from "@mantine/core";
 
 import { Alert } from "./Blocks/AlertBox";
@@ -67,6 +67,54 @@ const OpenInFinderButton = ({ editor }) => {
                 }
             }}
             icon={<FolderOpen size={16} />}
+        />
+    );
+};
+
+const CustomFileReplaceButton = ({ editor, uploadFile }) => {
+    const components = useComponentsContext();
+    const selectedBlocks = useSelectedBlocks(editor);
+    const block = selectedBlocks.length === 1 ? selectedBlocks[0] : null;
+
+    const isFileBlock = block && ['image', 'video', 'audio', 'file'].includes(block.type);
+
+    if (!isFileBlock || !components) {
+        return null;
+    }
+
+    const { Button: ToolbarButton } = components.FormattingToolbar;
+
+    return (
+        <ToolbarButton
+            mainTooltip="替换文件"
+            onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+
+                const input = document.createElement('input');
+                input.type = 'file';
+                if (block.type === 'image') input.accept = 'image/*';
+                else if (block.type === 'video') input.accept = 'video/*';
+                else if (block.type === 'audio') input.accept = 'audio/*';
+                
+                input.onchange = async (e) => {
+                    const file = e.target.files[0];
+                    if (file && uploadFile) {
+                         try {
+                             const url = await uploadFile(file);
+                             if (url) {
+                                 editor.updateBlock(block, {
+                                     props: { url: url, name: file.name }
+                                 });
+                             }
+                         } catch (error) {
+                             console.error("Replace failed", error);
+                         }
+                    }
+                };
+                input.click();
+            }}
+            icon={<Replace size={16} />}
         />
     );
 };
@@ -366,6 +414,46 @@ function MythEditor({ lang = "zh", initialContent, onChange, onEditorReady, uplo
 
     const getCustomSlashMenuItems = useCallback(() => {
         const items = getDefaultReactSlashMenuItems(editor);
+        
+        // Custom logic to replace default file items with upload-only versions
+        const fileTypes = ['image', 'video', 'audio', 'file'];
+        const modifiedItems = items.map(item => {
+            if (fileTypes.includes(item.key)) {
+                return {
+                    ...item,
+                    onItemClick: () => {
+                        const input = document.createElement('input');
+                        input.type = 'file';
+                        if (item.key === 'image') input.accept = 'image/*';
+                        else if (item.key === 'video') input.accept = 'video/*';
+                        else if (item.key === 'audio') input.accept = 'audio/*';
+                        
+                        input.onchange = async (e) => {
+                            const file = e.target.files[0];
+                            if (file && uploadFile) {
+                                try {
+                                    const url = await uploadFile(file);
+                                    if (url) {
+                                        insertOrUpdateBlockForSlashMenu(editor, {
+                                            type: item.key,
+                                            props: { 
+                                                url: url,
+                                                name: file.name
+                                            }
+                                        });
+                                    }
+                                } catch (error) {
+                                    console.error("Upload failed", error);
+                                }
+                            }
+                        };
+                        input.click();
+                    }
+                };
+            }
+            return item;
+        });
+
         const alertItem = {
             key: "alert",
             title: alertLabels.blockTitle,
@@ -379,18 +467,18 @@ function MythEditor({ lang = "zh", initialContent, onChange, onEditorReady, uplo
                 }),
             aliases: alertLabels.aliases,
         };
-        const insertIndex = items
+        const insertIndex = modifiedItems
             .map((item, index) => (item.group === alertLabels.group ? index : -1))
             .filter((index) => index !== -1)
             .pop();
-        const mergedItems = [...items];
+        const mergedItems = [...modifiedItems];
         if (typeof insertIndex === "number") {
             mergedItems.splice(insertIndex + 1, 0, alertItem);
         } else {
             mergedItems.push(alertItem);
         }
         return mergedItems;
-    }, [alertLabels, editor]);
+    }, [alertLabels, editor, uploadFile]);
 
     return (
         <div className="relative flex flex-col h-full">
@@ -429,7 +517,7 @@ function MythEditor({ lang = "zh", initialContent, onChange, onEditorReady, uplo
 
                         {/* File Block Buttons */}
                         <FileCaptionButton key={"fileCaptionButton"} />
-                        <FileReplaceButton key={"replaceFileButton"} />
+                        <CustomFileReplaceButton editor={editor} uploadFile={uploadFile} key={"replaceFileButton"} />
                         <OpenInFinderButton editor={editor} key={"openInFinderButton"} />
                         <FileRenameButton key={"fileRenameButton"} />
                         <FileDeleteButton key={"fileDeleteButton"} />

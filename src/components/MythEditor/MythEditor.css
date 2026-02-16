@@ -73,9 +73,12 @@
     padding: 0;
     background: transparent;
     flex-wrap: nowrap;
-    width: max-content; /* Allow it to grow beyond container */
-    max-width: none; /* Remove restriction */
-    flex-shrink: 0; /* Prevent shrinking */
+    width: max-content;
+    /* Allow it to grow beyond container */
+    max-width: none;
+    /* Remove restriction */
+    flex-shrink: 0;
+    /* Prevent shrinking */
     /* IMPORTANT: Keep static position */
     position: static !important;
 }
@@ -93,7 +96,8 @@
     font-size: 14px;
     color: var(--bn-colors-editor-text);
     transition: all 0.2s;
-    flex-shrink: 0; /* Prevent shrinking */
+    flex-shrink: 0;
+    /* Prevent shrinking */
     /* IMPORTANT: Keep static position if possible, but Mantine might need relative for ripples. 
        If dropdowns are relative to buttons, this might break positioning if we force static.
        However, if we don't force static, dropdowns will be clipped.
@@ -178,6 +182,10 @@ button[data-test-id^="toolbar-select"]:hover {
     border-radius: 16px;
 }
 
+.mantine-focus-auto.mantine-Tabs-tab.mantine-UnstyledButton-root {
+    border-radius: 0 !important;
+}
+
 .mantine-ActionIcon-icon {
     width: 16px;
     height: 16px;
@@ -231,8 +239,10 @@ button[data-test-id^="toolbar-select"]:hover {
 
 .bn-suggestion-menu-item {
     border-radius: 16px;
-    padding: 0 10px; /* Remove vertical padding, rely on height/flex */
-    height: 32px; /* Fixed height */
+    padding: 0 10px;
+    /* Remove vertical padding, rely on height/flex */
+    height: 32px;
+    /* Fixed height */
     min-height: 32px;
     margin-bottom: 2px;
     transition: all 0.2s;
@@ -247,12 +257,12 @@ button[data-test-id^="toolbar-select"]:hover {
 }
 
 /* Ensure content inside item is also centered */
-.bn-suggestion-menu-item > div {
+.bn-suggestion-menu-item>div {
     /* Removed justify-content: space-between because it breaks if there are wrapper divs */
 }
 
 /* Override inner grouping to ensure left section stays together */
-.bn-suggestion-menu-item > div > .mantine-Group-root[data-position="left"] {
+.bn-suggestion-menu-item>div>.mantine-Group-root[data-position="left"] {
     /* ... */
 }
 
@@ -269,7 +279,7 @@ button[data-test-id^="toolbar-select"]:hover {
 }
 
 /* Ensure content inside small item is also centered */
-.bn-suggestion-menu-item-small > div {
+.bn-suggestion-menu-item-small>div {
     /* ... */
 }
 
@@ -305,10 +315,14 @@ button[data-test-id^="toolbar-select"]:hover {
     flex-direction: column;
     justify-content: center;
     height: 100%;
-    gap: 0 !important; /* Override Mantine gap */
-    flex: 1; /* Take up remaining space */
-    align-items: flex-start; /* Left align text */
-    margin-right: 8px; /* Add spacing before badge */
+    gap: 0 !important;
+    /* Override Mantine gap */
+    flex: 1;
+    /* Take up remaining space */
+    align-items: flex-start;
+    /* Left align text */
+    margin-right: 8px;
+    /* Add spacing before badge */
 }
 
 .bn-slash-searching .bn-mt-suggestion-menu-item-body {
@@ -316,11 +330,13 @@ button[data-test-id^="toolbar-select"]:hover {
 }
 
 .bn-mt-suggestion-menu-item-section[data-position="right"] {
-    margin-left: auto; /* Push to right if flex parent doesn't use space-between */
+    margin-left: auto;
+    /* Push to right if flex parent doesn't use space-between */
 }
 
 .bn-mt-suggestion-menu-item-title {
-    line-height: 1; /* Reset line height for precise centering */
+    line-height: 1;
+    /* Reset line height for precise centering */
     margin: 0;
     padding: 0;
 }
@@ -363,11 +379,39 @@ button[data-test-id^="toolbar-select"]:hover {
     color: var(--bn-colors-tooltip-text) !important;
     border-radius: var(--bn-border-radius);
     font-size: 12px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     border: 1px solid var(--bn-colors-border);
     border-radius: 16px;
 }
 
 .mantine-Button-label {
     font-size: 14px;
+}
+
+.mantine-Input-input.mantine-TextInput-input[name="url"],
+.mantine-Input-input.mantine-TextInput-input[name="file-caption"],
+.mantine-Input-input.mantine-TextInput-input[name="file-name"] {
+    margin-left: 20px;
+}
+
+.mantine-Input-wrapper {
+    background-color: var(--bn-colors-tooltip-background);
+    border-radius: 16px !important;
+    border: 1px solid var(--bn-colors-border);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.mantine-Tabs-tabLabel {
+    color: var(--bn-colors-menu-text);
+    font-size: 14px;
+    border-radius: 0 !important;
+}
+
+.bn-panel {
+    background-color: var(--bn-colors-menu-background);
+    padding: 12px;
+    border-radius: 16px;
+    border: 1px solid var(--bn-colors-border);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    min-width: 260px;
 }
