@@ -98,10 +98,10 @@ const HomePage = () => {
                             <h1 className="text-3xl font-bold inline-flex items-center gap-2">
                                 {(() => {
                                     const hour = new Date().getHours();
-                                    if (hour >= 0 && hour < 6) return (<><RiSunFill />早上好</>);
-                                    if (hour < 12) return (<><RiSunFill />上午好</>);
-                                    if (hour < 18) return (<><RiCupFill />下午好</>);
-                                    return (<><RiMoonClearFill />晚上好</>);
+                                    if (hour >= 0 && hour < 6) return (<>早上好</>);
+                                    if (hour < 12) return (<>上午好</>);
+                                    if (hour < 18) return (<>下午好</>);
+                                    return (<>晚上好</>);
                                 })()}, {(process.env.USERNAME || process.env.USER || 'User').charAt(0).toUpperCase() + (process.env.USERNAME || process.env.USER || 'User').slice(1)}
                             </h1>
                             <div className="mt-2 text-md text-gray-200"><Yiyan />&nbsp;</div>

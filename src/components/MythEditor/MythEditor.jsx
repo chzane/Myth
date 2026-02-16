@@ -25,7 +25,8 @@ import {
     FileRenameButton,
     FileDeleteButton,
     FilePreviewButton,
-    useSelectedBlocks
+    useSelectedBlocks,
+    useComponentsContext
 } from "@blocknote/react";
 import { filterSuggestionItems, insertOrUpdateBlockForSlashMenu } from "@blocknote/core/extensions";
 import { RiAlertFill } from "react-icons/ri";
@@ -39,33 +40,31 @@ import * as locales from "@blocknote/core/locales";
 import "./MythEditor.css";
 
 const OpenInFinderButton = ({ editor }) => {
+    const components = useComponentsContext();
     const selectedBlocks = useSelectedBlocks(editor);
     const block = selectedBlocks.length === 1 ? selectedBlocks[0] : null;
 
     const isFileBlock = block && ['image', 'video', 'audio', 'file'].includes(block.type);
 
-    if (!isFileBlock) {
+    if (!isFileBlock || !components) {
         return null;
     }
 
+    const { Button: ToolbarButton } = components.FormattingToolbar;
+
     return (
-        <Tooltip label="在 Finder 中打开" withinPortal>
-            <ActionIcon 
-                size="lg" 
-                variant="subtle" 
-                color="gray" 
-                onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    const url = block.props.url;
-                    if (url) {
-                         window.require('electron').ipcRenderer.invoke('shell:showItemInFolder', url);
-                    }
-                }}
-            >
-                <FolderOpen size={16} />
-            </ActionIcon>
-        </Tooltip>
+        <ToolbarButton
+            mainTooltip="在 Finder 中打开"
+            onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const url = block.props.url;
+                if (url) {
+                        window.require('electron').ipcRenderer.invoke('shell:showItemInFolder', url);
+                }
+            }}
+            icon={<FolderOpen size={16} />}
+        />
     );
 };
 
