@@ -64,6 +64,10 @@ app.whenReady().then(() => {
     }
   })
 
+  ipcMain.on('log:renderer', (_event, ...args) => {
+    console.log(...args)
+  })
+
   ipcMain.handle('get-user-data-path', () => {
     return app.getPath('userData')
   })

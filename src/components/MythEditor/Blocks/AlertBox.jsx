@@ -95,9 +95,7 @@ export const Alert = (labels = {}) => {
                                 </div>
                             </Menu.Target>
                             {/*Dropdown to change the Alert type*/}
-                            <Menu.Dropdown>
-                                <Menu.Label>{resolvedLabels.menuLabel}</Menu.Label>
-                                <Menu.Divider />
+                            <Menu.Dropdown style={{ "borderRadius": "16px" }}>
                                 {alertTypes.map((type) => {
                                     const ItemIcon = type.icon;
                                     return (
@@ -115,6 +113,7 @@ export const Alert = (labels = {}) => {
                                                     props: { type: type.value },
                                                 })
                                             }
+                                            style={{ "borderRadius": "16px" }}
                                         >
                                             {type.title}
                                         </Menu.Item>

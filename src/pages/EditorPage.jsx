@@ -644,6 +644,7 @@ function EditorPage() {
                                         handleRename={handleRename}
                                         currentChapterId={currentChapterId} // pass this to check if outline update needed
                                         outline={outline} // pass outline for diff check
+                                        darkMode={darkMode}
                                     />
                                 );
                             })}
@@ -841,7 +842,8 @@ const ChapterEditorWrapper = React.memo(({
     editorRefs,
     handleRename,
     currentChapterId,
-    outline
+    outline,
+    darkMode
 }) => {
     const saveTimeoutRef = useRef(null);
 
@@ -934,7 +936,7 @@ const ChapterEditorWrapper = React.memo(({
     return (
         <div 
             style={{ display: isActive ? 'block' : 'none' }}
-            className={`max-w-3xl mx-auto py-12 px-8 min-h-full ${focusMode ? 'py-24' : ''}`}
+            className={`h-full w-full overflow-hidden relative ${focusMode ? 'py-0' : ''}`}
         >
             <MythEditor 
                 initialContent={initialContent}
@@ -942,6 +944,7 @@ const ChapterEditorWrapper = React.memo(({
                 onChange={handleChange}
                 lang="zh"
                 uploadFile={handleUploadFile}
+                darkMode={darkMode}
             />
         </div>
     );

@@ -1,14 +1,288 @@
-/* Base theme */
-.bn-container[data-theming-css-variables-demo][data-color-scheme] {
-    --bn-border-radius: 16px;
+/* Restore Toolbar Styling */
+.bn-container[data-theming-css-variables-demo] {
+    /* User provided variables */
+    --bn-colors-editor-text: #3f3f3f;
+    --bn-colors-editor-background: #ffffff;
+    --bn-colors-menu-text: #3f3f3f;
+    --bn-colors-menu-background: #ffffff;
+    --bn-colors-tooltip-text: #3f3f3f;
+    --bn-colors-tooltip-background: #efefef;
+    --bn-colors-hovered-text: #3f3f3f;
+    --bn-colors-hovered-background: #efefef;
+    --bn-colors-selected-text: #ffffff;
+    --bn-colors-selected-background: #3f3f3f;
+    --bn-colors-disabled-text: #afafaf;
+    --bn-colors-disabled-background: #efefef;
+    --bn-colors-shadow: #cfcfcf;
+    --bn-colors-border: #efefef;
+    --bn-colors-side-menu: #cfcfcf;
+    --bn-colors-highlights-gray-text: #9b9a97;
+    --bn-colors-highlights-gray-background: #ebeced;
+    --bn-colors-highlights-brown-text: #64473a;
+    --bn-colors-highlights-brown-background: #e9e5e3;
+    --bn-colors-highlights-red-text: #e03e3e;
+    --bn-colors-highlights-red-background: #fbe4e4;
+    --bn-colors-highlights-orange-text: #d9730d;
+    --bn-colors-highlights-orange-background: #f6e9d9;
+    --bn-colors-highlights-yellow-text: #dfab01;
+    --bn-colors-highlights-yellow-background: #fbf3db;
+    --bn-colors-highlights-green-text: #4d6461;
+    --bn-colors-highlights-green-background: #ddedea;
+    --bn-colors-highlights-blue-text: #0b6e99;
+    --bn-colors-highlights-blue-background: #ddebf1;
+    --bn-colors-highlights-purple-text: #6940a5;
+    --bn-colors-highlights-purple-background: #eae4f2;
+    --bn-colors-highlights-pink-text: #ad1a72;
+    --bn-colors-highlights-pink-background: #f4dfeb;
+    --bn-font-family: "Inter", "SF Pro Display", -apple-system, BlinkMacSystemFont, "Open Sans", "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
+    --bn-border-radius: 6px;
 }
 
+.myth-toolbar-container {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    /* Remove overflow from container to allow dropdowns to escape */
+    overflow: visible;
+    flex-wrap: nowrap;
+    width: 100%;
+}
+
+.myth-toolbar-scroll-wrapper {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    overflow-x: auto;
+    width: 100%;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    /* IMPORTANT: Keep static position to allow absolute children to position relative to container */
+    position: static;
+}
+
+.myth-toolbar-scroll-wrapper::-webkit-scrollbar {
+    display: none;
+}
+
+/* Ensure formatting toolbar inside portal behaves like a flex row */
+.bn-formatting-toolbar {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 2px;
+    padding: 0;
+    background: transparent;
+    flex-wrap: nowrap;
+    width: max-content; /* Allow it to grow beyond container */
+    max-width: none; /* Remove restriction */
+    flex-shrink: 0; /* Prevent shrinking */
+    /* IMPORTANT: Keep static position */
+    position: static !important;
+}
+
+/* Fix button styles */
+.bn-toolbar-button {
+    height: 28px;
+    width: 28px;
+    padding: 4px;
+    margin: 0 1px;
+    border-radius: var(--bn-border-radius);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    color: var(--bn-colors-editor-text);
+    transition: all 0.2s;
+    flex-shrink: 0; /* Prevent shrinking */
+    /* IMPORTANT: Keep static position if possible, but Mantine might need relative for ripples. 
+       If dropdowns are relative to buttons, this might break positioning if we force static.
+       However, if we don't force static, dropdowns will be clipped.
+       Let's try forcing static on buttons too. */
+    position: static !important;
+}
+
+.bn-toolbar-button:hover {
+    background-color: var(--bn-colors-hovered-background);
+    color: var(--bn-colors-hovered-text);
+}
+
+.bn-toolbar-button svg {
+    width: 16px !important;
+    height: 16px !important;
+}
+
+/* 
+   Reset specific BlockNote styles that might have been lost or overridden incorrectly 
+   when portaling the toolbar.
+*/
+
+/* Ensure dropdowns (Selects) have correct styling */
+.bn-toolbar-select {
+    height: 28px;
+    border-radius: var(--bn-border-radius);
+    font-size: 13px;
+}
+
+/* Ensure menu items in dropdowns are styled correctly */
+
+/* Fix for Select buttons specifically */
+button[data-test-id^="toolbar-select"] {
+    height: 28px;
+    padding: 0 8px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--bn-colors-editor-text);
+    border-radius: var(--bn-border-radius);
+    flex-shrink: 0;
+    /* IMPORTANT: Keep static position */
+    position: static !important;
+}
+
+button[data-test-id^="toolbar-select"]:hover {
+    background-color: var(--bn-colors-hovered-background);
+}
+
+/* Global overrides for BlockNote Menu Dropdowns to ensure they look native */
+.mantine-Menu-dropdown {
+    padding: 4px;
+    border-radius: var(--bn-border-radius);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    background-color: var(--bn-colors-menu-background);
+    color: var(--bn-colors-menu-text);
+    border: 1px solid var(--bn-colors-border);
+    border-radius: 16px;
+    max-height: 400px !important;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--bn-colors-hovered-background) transparent;
+}
+
+.mantine-Menu-itemSection {
+    margin-right: 8px;
+}
+
+.mantine-Menu-item {
+    font-size: 13px;
+    padding: 6px 10px;
+    border-radius: var(--bn-border-radius);
+    color: var(--bn-colors-menu-text);
+}
+
+.mantine-Menu-item:hover {
+    background-color: var(--bn-colors-hovered-background);
+    color: var(--bn-colors-hovered-text);
+}
+
+.mantine-focus-auto {
+    padding: 5px 8px;
+    border-radius: 16px;
+}
+
+.mantine-ActionIcon-icon {
+    width: 16px;
+    height: 16px;
+}
+
+.mantine-toolbar-overflowx {
+    overflow-x: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--bn-colors-hovered-background) transparent;
+}
+
+/* Hide scrollbar in toolbar */
+.bn-formatting-toolbar::-webkit-scrollbar {
+    display: none;
+}
+
+/* Center the editor content and set max-width */
+.bn-editor {
+    max-width: 800px;
+    margin: 0 auto;
+    width: 100%;
+}
+
+/* Ensure the editor itself takes full width but content is centered */
+.bn-block-content {
+    /* BlockNote handles this, but we can enforce if needed */
+}
+
+/* Toolbar customization */
 .bn-mt-suggestion-menu-item-subtitle {
     display: none;
+    margin: 0 !important;
+    padding: 0 !important;
+    text-align: left;
 }
 
 .bn-slash-searching .bn-mt-suggestion-menu-item-subtitle {
     display: block;
+    line-height: 1.2;
+    font-size: 12px;
+    opacity: 0.8;
+}
+
+/* Suggestion Menu Customization */
+.bn-mantine .bn-suggestion-menu {
+    border-radius: 16px;
+    padding: 6px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--bn-colors-hovered-background) transparent;
+}
+
+.bn-suggestion-menu-item {
+    border-radius: 16px;
+    padding: 0 10px; /* Remove vertical padding, rely on height/flex */
+    height: 32px; /* Fixed height */
+    min-height: 32px;
+    margin-bottom: 2px;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    flex-wrap: nowrap;
+}
+
+.bn-slash-searching .bn-suggestion-menu-item {
+    height: 45px;
+    min-height: 45px;
+}
+
+/* Ensure content inside item is also centered */
+.bn-suggestion-menu-item > div {
+    /* Removed justify-content: space-between because it breaks if there are wrapper divs */
+}
+
+/* Override inner grouping to ensure left section stays together */
+.bn-suggestion-menu-item > div > .mantine-Group-root[data-position="left"] {
+    /* ... */
+}
+
+.bn-suggestion-menu-item-small {
+    border-radius: 16px;
+    padding: 0 10px;
+    height: 32px;
+    min-height: 32px;
+    margin-bottom: 2px;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    flex-wrap: nowrap;
+}
+
+/* Ensure content inside small item is also centered */
+.bn-suggestion-menu-item-small > div {
+    /* ... */
+}
+
+.bn-suggestion-menu-item:hover,
+.bn-suggestion-menu-item[aria-selected="true"] {
+    border-radius: 16px;
+    background-color: var(--bn-colors-hovered-background);
+}
+
+.bn-suggestion-menu-item-small:hover,
+.bn-suggestion-menu-item-small[aria-selected="true"] {
+    border-radius: 16px;
+    background-color: var(--bn-colors-hovered-background);
 }
 
 .bn-mt-suggestion-menu-item-section[data-position="left"] {
@@ -19,6 +293,36 @@
     height: 20px;
     min-width: 20px;
     min-height: 20px;
+    margin-right: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Fix text container alignment */
+.bn-mt-suggestion-menu-item-body {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    height: 100%;
+    gap: 0 !important; /* Override Mantine gap */
+    flex: 1; /* Take up remaining space */
+    align-items: flex-start; /* Left align text */
+    margin-right: 8px; /* Add spacing before badge */
+}
+
+.bn-slash-searching .bn-mt-suggestion-menu-item-body {
+    gap: 2px !important;
+}
+
+.bn-mt-suggestion-menu-item-section[data-position="right"] {
+    margin-left: auto; /* Push to right if flex parent doesn't use space-between */
+}
+
+.bn-mt-suggestion-menu-item-title {
+    line-height: 1; /* Reset line height for precise centering */
+    margin: 0;
+    padding: 0;
 }
 
 .bn-mt-suggestion-menu-item-section[data-position="left"] svg {
@@ -29,21 +333,6 @@
 .bn-suggestion-menu-item-small .bn-mt-suggestion-menu-item-section[data-position="left"] svg {
     width: 16px !important;
     height: 16px !important;
-}
-
-.bn-suggestion-menu-item:hover,
-.bn-suggestion-menu-item[aria-selected="true"] {
-    border-radius: 16px;
-}
-
-.bn-suggestion-menu-item-small:hover,
-.bn-suggestion-menu-item-small[aria-selected="true"] {
-    border-radius: 16px;
-}
-
-.bn-mantine .bn-suggestion-menu {
-    scrollbar-width: thin;
-    scrollbar-color: var(--bn-colors-hovered-background) transparent;
 }
 
 .bn-mantine .bn-suggestion-menu::-webkit-scrollbar {
@@ -66,4 +355,19 @@
 .tableWrapper {
     scrollbar-width: thin;
     scrollbar-color: var(--bn-colors-hovered-background) transparent;
+}
+
+/* Global overrides for Mantine Tooltips */
+.mantine-Tooltip-tooltip {
+    background-color: var(--bn-colors-tooltip-background) !important;
+    color: var(--bn-colors-tooltip-text) !important;
+    border-radius: var(--bn-border-radius);
+    font-size: 12px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    border: 1px solid var(--bn-colors-border);
+    border-radius: 16px;
+}
+
+.mantine-Button-label {
+    font-size: 14px;
 }
