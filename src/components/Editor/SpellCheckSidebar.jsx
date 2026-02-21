@@ -22,30 +22,30 @@ const SpellCheckSidebar = ({ errors, onJumpToError, darkMode }) => {
                             className={`
                                 group relative p-3 rounded-lg border transition-all cursor-pointer
                                 ${darkMode 
-                                    ? 'bg-gray-800/50 border-gray-700/50 hover:bg-gray-800 hover:border-red-500/30' 
-                                    : 'bg-white border-gray-100 hover:border-red-200 hover:shadow-sm'}
+                                    ? 'bg-black/50 border-gray-800 hover:border-gray-600 hover:bg-gray-900' 
+                                    : 'bg-white border-gray-200 hover:border-black hover:shadow-md'}
                             `}
                             onClick={() => onJumpToError(error)}
                         >
-                            <div className="flex items-start justify-between mb-1">
-                                <span className="font-medium text-red-500 line-through decoration-red-500/30 decoration-2">
+                            <div className="flex items-start justify-between mb-2">
+                                <span className="font-bold text-red-600 line-through decoration-red-500/30 decoration-2">
                                     {error.word}
                                 </span>
-                                <span className="text-[10px] text-gray-400 uppercase tracking-wider">{error.type}</span>
+                                <span className={`text-[10px] uppercase tracking-wider font-medium ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>{error.type}</span>
                             </div>
                             
                             {error.suggestions && error.suggestions.length > 0 && (
                                 <div className="mt-2 text-sm">
-                                    <div className="text-xs text-gray-400 mb-1">建议修改:</div>
-                                    <div className="flex flex-wrap gap-1">
+                                    <div className={`text-xs mb-1.5 font-medium ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>建议修改:</div>
+                                    <div className="flex flex-wrap gap-1.5">
                                         {error.suggestions.slice(0, 3).map(s => (
                                             <span 
                                                 key={s} 
                                                 className={`
-                                                    px-2 py-0.5 rounded text-xs font-medium
+                                                    px-2 py-1 rounded text-xs font-medium border transition-colors
                                                     ${darkMode 
-                                                        ? 'bg-green-900/20 text-green-400' 
-                                                        : 'bg-green-50 text-green-700 border border-green-100'}
+                                                        ? 'bg-gray-900 border-gray-700 text-gray-300 hover:border-gray-500' 
+                                                        : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-white hover:border-black hover:text-black'}
                                                 `}
                                             >
                                                 {s}
