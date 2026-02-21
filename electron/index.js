@@ -17,8 +17,9 @@ const createWindow = () => {
     webPreferences: {
         nodeIntegration: true,
         contextIsolation: false,
-        webSecurity: false // Disable web security to allow local file access in dev
-    }
+        webSecurity: false   // Disable web security to allow local file access in dev
+    },
+    title: 'Myth',
   })
 
   if (!app.isPackaged) {

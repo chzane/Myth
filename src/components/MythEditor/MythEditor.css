@@ -38,6 +38,42 @@
     --bn-border-radius: 6px;
 }
 
+.bn-container[data-theming-css-variables-demo][data-color-scheme="dark"] {
+    --bn-colors-editor-text: #cfcfcf;
+    --bn-colors-editor-background: #1a1a1a;
+    --bn-colors-menu-text: #cfcfcf;
+    --bn-colors-menu-background: #1f1f1f;
+    --bn-colors-tooltip-text: #cfcfcf;
+    --bn-colors-tooltip-background: #2a2a2a;
+    --bn-colors-hovered-text: #ffffff;
+    --bn-colors-hovered-background: #2a2a2a;
+    --bn-colors-selected-text: #ffffff;
+    --bn-colors-selected-background: #3f3f3f;
+    --bn-colors-disabled-text: #5f5f5f;
+    --bn-colors-disabled-background: #2a2a2a;
+    --bn-colors-shadow: #000000;
+    --bn-colors-border: #2a2a2a;
+    --bn-colors-side-menu: #5f5f5f;
+    --bn-colors-highlights-gray-text: #9b9a97;
+    --bn-colors-highlights-gray-background: #37352f;
+    --bn-colors-highlights-brown-text: #ba856f;
+    --bn-colors-highlights-brown-background: #44332a;
+    --bn-colors-highlights-red-text: #ff7369;
+    --bn-colors-highlights-red-background: #522e2a;
+    --bn-colors-highlights-orange-text: #fcbf06;
+    --bn-colors-highlights-orange-background: #4a3a1f;
+    --bn-colors-highlights-yellow-text: #e6c565;
+    --bn-colors-highlights-yellow-background: #4d431f;
+    --bn-colors-highlights-green-text: #44bfa3;
+    --bn-colors-highlights-green-background: #24342f;
+    --bn-colors-highlights-blue-text: #4cb2d4;
+    --bn-colors-highlights-blue-background: #233138;
+    --bn-colors-highlights-purple-text: #a881e6;
+    --bn-colors-highlights-purple-background: #342a45;
+    --bn-colors-highlights-pink-text: #e56ca7;
+    --bn-colors-highlights-pink-background: #452b37;
+}
+
 .myth-toolbar-container {
     display: flex;
     flex-direction: row;

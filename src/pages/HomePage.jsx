@@ -288,11 +288,14 @@ const HomePage = () => {
                                 </h3>
                                 <ul className="space-y-2">
                                     {worldViews.length === 0 && <li className="text-gray-400 text-sm">暂无世界观设定</li>}
-                                    {worldViews.map((item, index) => (
-                                        <li key={index} className="flex items-center gap-2 text-gray-700 hover:text-black cursor-pointer p-2 hover:bg-gray-50 rounded-[16px] transition-colors">
-                                            {item}
-                                        </li>
-                                    ))}
+                                    {worldViews.map((item, index) => {
+                                        const name = typeof item === 'string' ? item : item.name;
+                                        return (
+                                            <li key={item.id || index} className="flex items-center gap-2 text-gray-700 hover:text-black cursor-pointer p-2 hover:bg-gray-50 rounded-[16px] transition-colors">
+                                                {name}
+                                            </li>
+                                        );
+                                    })}
                                 </ul>
                             </div>
 
@@ -303,14 +306,20 @@ const HomePage = () => {
                                 </h3>
                                 <ul className="space-y-2">
                                     {stories.length === 0 && <li className="text-gray-400 text-sm">暂无故事设定</li>}
-                                    {stories.map((item, index) => (
-                                        <li key={index} className="flex items-center justify-between p-2 hover:bg-gray-50 rounded-[16px] transition-colors cursor-pointer group">
-                                            <span className="text-gray-700 group-hover:text-black">{item.title}</span>
-                                            <span className={`text-xs px-2 py-0.5 rounded-full border ${getStatusColor(item.status)}`}>
-                                                {item.status}
-                                            </span>
-                                        </li>
-                                    ))}
+                                    {stories.map((item, index) => {
+                                        const name = typeof item === 'string' ? item : (item.name || item.title);
+                                        const status = typeof item === 'object' ? item.status : null;
+                                        return (
+                                            <li key={item.id || index} className="flex items-center justify-between p-2 hover:bg-gray-50 rounded-[16px] transition-colors cursor-pointer group">
+                                                <span className="text-gray-700 group-hover:text-black">{name}</span>
+                                                {status && (
+                                                    <span className={`text-xs px-2 py-0.5 rounded-full border ${getStatusColor(status)}`}>
+                                                        {status}
+                                                    </span>
+                                                )}
+                                            </li>
+                                        );
+                                    })}
                                 </ul>
                             </div>
 
@@ -321,14 +330,23 @@ const HomePage = () => {
                                 </h3>
                                 <ul className="space-y-2">
                                     {characters.length === 0 && <li className="text-gray-400 text-sm">暂无人物设定</li>}
-                                    {characters.map((item, index) => (
-                                        <li key={index} className="flex items-center gap-2 text-gray-700 hover:text-black cursor-pointer p-2 hover:bg-gray-50 rounded-[16px] transition-colors">
-                                            <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-500">
-                                                {item.charAt(0)}
-                                            </div>
-                                            {item}
-                                        </li>
-                                    ))}
+                                    {characters.map((item, index) => {
+                                        const name = typeof item === 'string' ? item : item.name;
+                                        const avatar = typeof item === 'object' && item.images && item.images.length > 0 ? item.images[0].url : null;
+                                        
+                                        return (
+                                            <li key={item.id || index} className="flex items-center gap-2 text-gray-700 hover:text-black cursor-pointer p-2 hover:bg-gray-50 rounded-[16px] transition-colors">
+                                                <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-500 overflow-hidden">
+                                                    {avatar ? (
+                                                        <img src={avatar} alt={name} className="w-full h-full object-cover" />
+                                                    ) : (
+                                                        (name || '').charAt(0)
+                                                    )}
+                                                </div>
+                                                {name}
+                                            </li>
+                                        );
+                                    })}
                                 </ul>
                             </div>
                         </div>

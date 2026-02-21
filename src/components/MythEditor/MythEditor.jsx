@@ -645,6 +645,7 @@ function MythEditor({ lang = "zh", initialContent, onChange, onEditorReady, uplo
             />
             <BlockNoteView
                 editor={editor}
+                theme={darkMode ? "dark" : "light"}
                 slashMenu={false}
                 formattingToolbar={false}
                 data-theming-css-variables-demo
